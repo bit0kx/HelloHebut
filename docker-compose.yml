@@ -104,15 +104,19 @@ services:
       retries: 3
       start_period: 90s
 
-  # ── Nginx 反向代理 ──────────────────────────────────────────────────────────
-  nginx:
-    image: nginx:alpine
-    container_name: echomind-nginx
+  # ── 前端界面 + Nginx 反向代理 ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    container_name: echomind-frontend
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     volumes:
-      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - nginx-logs:/var/log/nginx
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       echomind:
         condition: service_healthy
@@ -120,7 +124,7 @@ services:
     networks:
       - echomind-network
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
