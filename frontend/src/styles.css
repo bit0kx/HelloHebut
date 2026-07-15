@@ -320,6 +320,24 @@ pre {
   white-space: pre-wrap;
 }
 
+.citations {
+  display: grid;
+  gap: 5px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: #526174;
+  font-size: 12px;
+}
+
+.citations a {
+  color: #1769e0;
+  text-decoration: none;
+}
+
+.citations a:hover {
+  text-decoration: underline;
+}
+
 .workspace {
   display: grid;
   grid-template-rows: auto minmax(420px, 1fr) auto;

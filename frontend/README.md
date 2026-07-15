@@ -1,12 +1,12 @@
-# EchoMind Frontend
+# 河北工业大学本科报考咨询前端
 
-EchoMind 的 Vue 前端，可同时连接 EchoMind Python 版本和 EchoMind Java 版本。
+本科报考咨询的 Vue 前端；保留 Python/Java 后端适配层，便于同一接口协议的实现复用。
 
 ## 功能
 
 - 在页面中切换 Java / Python 后端。
 - 统一适配 `/chat` 响应字段：
-  - Python：`conv_id`、`agent_type`、`latency_ms`
+  - Python：`conv_id`、`agent_type`、`latency_ms`、`admission_data_used`
   - Java：`conversation_id`、`agent_type`、`latency_ms`
 - 支持聊天调试、健康检查、监控摘要、知识库检索、知识库文档导入、文件上传。
 
@@ -60,7 +60,7 @@ Docker 配置统一位于仓库根目录。回到根目录执行：
 docker compose up -d --build
 ```
 
-部署完成后访问 `http://localhost`。前端会通过同源路径 `/api/python` 访问 EchoMind Python 后端。
+部署完成后访问 `http://localhost`。前端会通过同源路径 `/api/python` 访问 Python 后端。
 
 ## 后端启动参考
 

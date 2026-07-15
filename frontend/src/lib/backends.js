@@ -17,7 +17,7 @@ export function createInitialSettings() {
   const saved = readSettings()
   return {
     backend: saved.backend || 'python',
-    userId: saved.userId || 'u1001',
+    userId: saved.userId || createAnonymousUserId(),
     conversationId: saved.conversationId || '',
     endpoints: {
       python: saved.endpoints?.python || DEFAULT_BACKENDS.python.baseUrl,
@@ -51,7 +51,7 @@ export async function requestKnowledgeStats(type, settings) {
 }
 
 export async function requestSearch(type, settings, query, topK = 5) {
-  const params = new URLSearchParams({ query, topK: String(topK) })
+  const params = new URLSearchParams({ query, top_k: String(topK) })
   return requestJson(backendMeta(type, settings).baseUrl, `/search?${params}`, { method: 'POST' })
 }
 
@@ -66,19 +66,24 @@ export async function requestChat(type, settings, message) {
   return normalizeChatResponse(type, raw)
 }
 
-export async function addKnowledge(type, settings, documents) {
+export async function addKnowledge(type, settings, documents, adminToken = '') {
   return requestJson(backendMeta(type, settings).baseUrl, '/knowledge/add', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(adminToken ? { 'X-Admin-Token': adminToken } : {})
+    },
     body: JSON.stringify({ documents })
   })
 }
 
-export async function uploadKnowledge(type, settings, file) {
+export async function uploadKnowledge(type, settings, file, sourceUrl, adminToken = '') {
   const form = new FormData()
   form.append('file', file)
+  form.append('source_url', sourceUrl)
   return requestJson(backendMeta(type, settings).baseUrl, '/knowledge/upload', {
     method: 'POST',
+    headers: adminToken ? { 'X-Admin-Token': adminToken } : {},
     body: form
   })
 }
@@ -108,8 +113,11 @@ function normalizeChatResponse(type, raw) {
     escalated: Boolean(raw.escalated),
     latencyMs: Number(raw.latency_ms ?? raw.latencyMs ?? 0),
     knowledgeUsed: Boolean(raw.knowledge_used ?? raw.knowledgeUsed),
+    admissionDataUsed: Boolean(raw.admission_data_used ?? raw.admissionDataUsed),
     verified: raw.verified,
     grounded: raw.grounded,
+    citations: Array.isArray(raw.citations) ? raw.citations : [],
+    entities: raw.entities || {},
     raw
   }
 }
@@ -141,4 +149,9 @@ function readSettings() {
   } catch {
     return {}
   }
+}
+
+function createAnonymousUserId() {
+  const suffix = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  return `anon-${suffix}`
 }
