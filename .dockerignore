@@ -25,3 +25,5 @@ data/.DS_Store
 
 config/grafana/
 config/nginx/ssl/
+
+model-cache/

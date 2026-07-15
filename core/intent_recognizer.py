@@ -20,20 +20,23 @@ from typing import Any, Dict, List, Optional
 
 from anthropic import AsyncAnthropic
 
+from core.llm_client import create_message, extract_text
+
 logger = logging.getLogger(__name__)
 
 
 class IntentCategory(Enum):
-    QUERY      = "query"       # 查询信息
-    COMPLAINT  = "complaint"   # 投诉不满
-    REQUEST    = "request"     # 请求操作
-    GREETING   = "greeting"    # 问候
-    ESCALATION = "escalation"  # 要求升级/转人工
-    TECHNICAL  = "technical"   # 技术问题
-    BILLING    = "billing"     # 账单/退款
-    ACCOUNT    = "account"     # 账户管理
-    FEEDBACK   = "feedback"    # 正面反馈
-    OTHER      = "other"
+    SCHOOL_INFO      = "school_info"       # 学校概况、校区、办学特色
+    MAJOR_INFO       = "major_info"        # 专业介绍、课程、适合人群
+    ADMISSION_POLICY = "admission_policy"  # 招生章程、录取规则、调剂、转专业
+    SCORE_RISK       = "score_risk"        # 分数、位次、冲稳保风险
+    TUITION          = "tuition"           # 学费、住宿费、奖助学金
+    CAMPUS_LIFE      = "campus_life"       # 宿舍、食堂、社团、校园生活
+    CAREER           = "career"            # 就业、升学、行业前景
+    COMPARISON       = "comparison"        # 专业、方向、校区对比
+    GREETING         = "greeting"          # 问候
+    ESCALATION       = "escalation"        # 招生办、人工确认、投诉
+    OTHER            = "other"
 
 
 class UrgencyLevel(Enum):
@@ -55,22 +58,23 @@ class IntentResult:
 
 # ── Few-shot 模板（同时用于 LLM 示例和 Embedding 匹配）────────────────────────
 _TEMPLATES: Dict[IntentCategory, List[str]] = {
-    IntentCategory.QUERY:      ["我的订单状态是什么？", "如何重置密码？", "快递什么时候到？"],
-    IntentCategory.COMPLAINT:  ["等了好几个小时！", "服务太差了！", "一直没人处理！"],
-    IntentCategory.REQUEST:    ["帮我取消订单", "我需要修改地址", "请协助退款"],
-    IntentCategory.GREETING:   ["你好", "嗨，有人吗", "早上好"],
-    IntentCategory.ESCALATION: ["我要投诉！", "转人工客服", "找你们经理"],
-    IntentCategory.TECHNICAL:  ["应用一直崩溃", "无法登录", "出现500错误"],
-    IntentCategory.BILLING:    ["为什么扣了两次款？", "申请退款", "发票问题"],
-    IntentCategory.ACCOUNT:    ["修改邮箱", "注销账户", "更新个人信息"],
-    IntentCategory.FEEDBACK:   ["服务很棒！", "非常满意", "给个好评"],
+    IntentCategory.SCHOOL_INFO: ["河北工业大学是什么层次的学校？", "学校有几个校区？", "学校有什么办学特色？"],
+    IntentCategory.MAJOR_INFO: ["电气工程专业主要学什么？", "计算机专业适合什么样的学生？", "请介绍一下机械类专业"],
+    IntentCategory.ADMISSION_POLICY: ["学校的专业录取规则是什么？", "不服从调剂会退档吗？", "色弱可以报哪些专业？"],
+    IntentCategory.SCORE_RISK: ["河北物理类620分报河工大稳吗？", "计算机专业去年最低位次是多少？", "今年在山东招多少人？"],
+    IntentCategory.TUITION: ["普通本科一年学费多少？", "住宿费怎么收？", "学校有哪些奖助学金？"],
+    IntentCategory.CAMPUS_LIFE: ["宿舍条件怎么样？", "学校食堂如何？", "有哪些学生社团？"],
+    IntentCategory.CAREER: ["电气专业毕业后能做什么？", "这个专业保研和考研方向有哪些？", "毕业生主要去哪些行业？"],
+    IntentCategory.COMPARISON: ["电气和自动化哪个更适合我？", "北辰校区和红桥校区有什么区别？", "几个中外合作项目怎么选？"],
+    IntentCategory.GREETING: ["你好", "嗨，有人吗", "早上好"],
+    IntentCategory.ESCALATION: ["请给我招生办联系方式", "这个问题需要人工确认", "我要投诉招生咨询服务"],
 }
 
 # 紧急关键词
 _URGENCY_KEYWORDS = {
-    UrgencyLevel.CRITICAL: ["紧急", "emergency", "urgent", "asap", "立刻"],
-    UrgencyLevel.HIGH:     ["今天", "马上", "尽快", "hurry", "now"],
-    UrgencyLevel.MEDIUM:   ["这周", "soon", "快点"],
+    UrgencyLevel.CRITICAL: ["截止今天", "最后一天", "已经退档", "录取异常"],
+    UrgencyLevel.HIGH:     ["马上截止", "填报截止", "急需确认", "尽快确认"],
+    UrgencyLevel.MEDIUM:   ["这周填报", "近期填报", "等待录取"],
 }
 
 
@@ -125,7 +129,7 @@ class IntentRecognizer:
 
         history 格式：[{"role": "user"/"assistant", "content": "..."}]
         """
-        key = self._cache_key(message)
+        key = self._cache_key(message, history)
         if key in self._cache:
             self.cache_hits += 1
             return self._cache[key]
@@ -150,7 +154,7 @@ class IntentRecognizer:
 
         result = IntentResult(
             intent=intent,
-            confidence=llm["confidence"],
+            confidence=float(llm.get("confidence", 0.0)),
             urgency=urgency,
             entities=entities,
             reasoning=llm.get("reasoning", ""),
@@ -195,7 +199,9 @@ class IntentRecognizer:
                 for m in history[-3:]
             )
 
-        prompt = f"""你是客服意图分析专家。根据示例判断用户意图，返回 JSON。
+        prompt = f"""你是河北工业大学普通本科报考咨询的意图分析专家。根据示例和上下文判断用户的主要意图，返回 JSON。
+
+边界说明：招生计划的具体人数、历年分数、位次和录取风险归 score_risk；学费、住宿费和奖助规则归 tuition；专业内容与适合人群归 major_info；就业与升学归 career；需要比较多个选项时归 comparison。学校概况、校区和办学特色归 school_info；宿舍、食堂、社团和校园生活归 campus_life。
 
 示例:
 {examples}
@@ -210,13 +216,14 @@ class IntentRecognizer:
         prompt = self._clean_text(prompt)
 
         try:
-            resp = await self.client.messages.create(
+            resp = await create_message(
+                self.client,
                 model=self.model,
                 max_tokens=256,
                 temperature=0.1,
                 messages=[{"role": "user", "content": prompt}],
             )
-            raw = resp.content[0].text
+            raw = extract_text(resp)
             s, e = raw.find("{"), raw.rfind("}") + 1
             data = json.loads(raw[s:e])
             try:
@@ -249,20 +256,23 @@ class IntentRecognizer:
         """策略 3：关键词模式匹配（同步，零延迟兜底）。"""
         msg = message.lower()
         patterns = {
-            IntentCategory.ESCALATION: ["投诉", "经理", "转人工", "supervisor"],
-            IntentCategory.COMPLAINT:  ["太差", "糟糕", "horrible", "等了很久"],
-            IntentCategory.QUERY:      ["?", "？", "怎么", "什么", "status"],
-            IntentCategory.REQUEST:    ["帮我", "需要", "please", "help"],
-            IntentCategory.GREETING:   ["你好", "嗨", "hello", "hi"],
-            IntentCategory.BILLING:    ["退款", "扣款", "发票", "refund"],
-            IntentCategory.TECHNICAL:  ["崩溃", "报错", "error", "crash"],
-            IntentCategory.ACCOUNT:    ["密码", "邮箱", "账户", "password"],
+            IntentCategory.ESCALATION: ["招生办", "人工", "联系电话", "联系方式", "投诉", "官方确认"],
+            IntentCategory.SCORE_RISK: ["分数", "位次", "最低分", "最低位次", "录取概率", "能录取", "能上", "稳不稳", "冲稳保", "招生计划", "招多少"],
+            IntentCategory.ADMISSION_POLICY: ["招生章程", "录取规则", "投档", "提档", "退档", "调剂", "专业级差", "级差", "平行志愿", "体检", "色盲", "色弱", "转专业", "选科"],
+            IntentCategory.TUITION: ["学费", "住宿费", "奖学金", "助学金", "助学贷款", "收费"],
+            IntentCategory.COMPARISON: ["对比", "比较", "区别", "哪个更", "怎么选"],
+            IntentCategory.CAREER: ["就业", "岗位", "行业", "薪资", "考研", "保研", "升学", "前景"],
+            IntentCategory.MAJOR_INFO: ["专业", "课程", "培养方向", "学什么", "适合"],
+            IntentCategory.CAMPUS_LIFE: ["宿舍", "食堂", "社团", "交通", "校园生活", "校园环境"],
+            IntentCategory.SCHOOL_INFO: ["学校概况", "学校介绍", "校区", "双一流", "优势学科", "办学层次"],
+            IntentCategory.GREETING: ["你好", "您好", "嗨", "hello", "hi"],
         }
         best_cat, best_score = IntentCategory.OTHER, 0.0
         for cat, kws in patterns.items():
             hits = sum(1 for kw in kws if kw in msg)
             if hits:
-                score = hits / len(kws)
+                # 关键词表长度不应稀释命中分；多命中用于打破交叉场景的平分。
+                score = min(1.0, 0.6 + 0.15 * (hits - 1))
                 if score > best_score:
                     best_score, best_cat = score, cat
         return {"intent": best_cat, "confidence": best_score}
@@ -296,20 +306,25 @@ class IntentRecognizer:
     async def _extract_entities(self, message: str) -> Dict[str, List[str]]:
         """用 LLM 从消息中提取结构化实体。"""
         message = self._clean_text(message)
-        prompt = f"""从客服消息中提取实体，返回 JSON（字段值为列表，没有则为空列表）:
+        prompt = f"""从河北工业大学普通本科报考咨询中提取实体，返回 JSON（字段值为列表，没有则为空列表，不推测用户没有提供的信息）:
 消息: "{message}"
-格式: {{"order_id":[],"product":[],"date":[],"amount":[],"error_code":[]}}"""
+格式: {{"admission_year":[],"province":[],"exam_mode":[],"subject_combination":[],"batch":[],"score":[],"rank":[],"major":[],"college":[],"campus":[],"candidate_type":[]}}"""
         prompt = self._clean_text(prompt)
         try:
-            resp = await self.client.messages.create(
+            resp = await create_message(
+                self.client,
                 model=self.model, max_tokens=256, temperature=0.0,
                 messages=[{"role": "user", "content": prompt}],
             )
-            raw = resp.content[0].text
+            raw = extract_text(resp)
             s, e = raw.find("{"), raw.rfind("}") + 1
             return json.loads(raw[s:e])
         except Exception:
-            return {"order_id": [], "product": [], "date": [], "amount": [], "error_code": []}
+            return {
+                "admission_year": [], "province": [], "exam_mode": [],
+                "subject_combination": [], "batch": [], "score": [], "rank": [],
+                "major": [], "college": [], "campus": [], "candidate_type": [],
+            }
 
     # ── 辅助 ──────────────────────────────────────────────────────────────────
 
@@ -371,12 +386,15 @@ class IntentRecognizer:
                 return level
         if intent == IntentCategory.ESCALATION:
             return UrgencyLevel.HIGH
-        if intent == IntentCategory.COMPLAINT:
-            return UrgencyLevel.MEDIUM
         return UrgencyLevel.LOW
 
-    def _cache_key(self, message: str) -> str:
-        return self._clean_text(message)[:200]
+    def _cache_key(self, message: str, history: Optional[List[Dict[str, str]]] = None) -> str:
+        """缓存键包含近期上下文，避免“这个专业呢”等追问跨会话误命中。"""
+        recent = "|".join(
+            f"{m.get('role', '')}:{m.get('content', '')}" for m in (history or [])[-3:]
+        )
+        raw = self._clean_text(f"hebut-v1|{recent}|{message}")
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
     @staticmethod
     def _clean_text(value: Any) -> str:

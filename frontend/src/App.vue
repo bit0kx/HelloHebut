@@ -2,18 +2,12 @@
   <main class="app-shell">
     <aside class="sidebar">
       <section class="brand">
-        <div class="brand-mark">EM</div>
+        <div class="brand-mark">HE</div>
         <div>
-          <h1>EchoMind Console</h1>
-          <p>统一调试 Python 与 Java 版本</p>
+          <h1>河工大报考咨询</h1>
+          <p>普通本科招生智能咨询</p>
         </div>
       </section>
-
-      <a class="profile-card" href="https://xhslink.com/m/558VOQs4Otc" target="_blank" rel="noreferrer">
-        <span>我的主页</span>
-        <strong>小红书 69.6K 次赞与收藏</strong>
-        <em>来看看我的主页 &gt;&gt;</em>
-      </a>
 
       <section class="panel">
         <div class="panel-heading">
@@ -40,6 +34,10 @@
         <label>
           <span>会话 ID</span>
           <input v-model="settings.conversationId" @change="persist" placeholder="自动生成" />
+        </label>
+        <label>
+          <span>管理令牌（仅保存在当前页面内存）</span>
+          <input v-model="adminToken" type="password" autocomplete="off" placeholder="知识导入时需要" />
         </label>
 
         <div class="actions">
@@ -74,12 +72,12 @@
     <section class="workspace">
       <header class="workspace-header">
         <div>
-          <span class="eyebrow">EchoMind Workspace</span>
-          <h2>对话调试</h2>
+          <span class="eyebrow">HEBUT Undergraduate Admissions</span>
+          <h2>本科报考咨询</h2>
           <p>{{ currentBackend.baseUrl }}</p>
         </div>
         <div class="header-actions">
-          <a class="profile-link" href="https://xhslink.com/m/558VOQs4Otc" target="_blank" rel="noreferrer">小红书主页</a>
+          <a href="https://zs.hebut.edu.cn/" target="_blank" rel="noreferrer">本科招生网</a>
           <a :href="docsUrl" target="_blank" rel="noreferrer">API 文档</a>
         </div>
       </header>
@@ -92,15 +90,24 @@
               <small v-if="item.meta">{{ item.meta }}</small>
             </div>
             <p>{{ item.content }}</p>
+            <ul v-if="item.citations?.length" class="citations">
+              <li v-for="(citation, index) in item.citations" :key="`${item.id}-${index}`">
+                <a v-if="citation.url" :href="citation.url" target="_blank" rel="noreferrer">
+                  来源{{ index + 1 }}：{{ citation.title }}
+                </a>
+                <span v-else>来源{{ index + 1 }}：{{ citation.title }}</span>
+                <small v-if="citation.effective_year">（{{ citation.effective_year }}）</small>
+              </li>
+            </ul>
           </article>
           <div v-if="messages.length === 0" class="empty-state">
-            <h3>开始一次客服对话</h3>
-            <p>可切换 Java 或 Python 后端，前端会自动适配响应字段。</p>
+            <h3>开始一次本科报考咨询</h3>
+            <p>咨询录取风险时，请尽量提供年份、省份、选科、位次和目标专业。</p>
           </div>
         </div>
 
         <form class="composer" @submit.prevent="sendMessage">
-          <textarea v-model="draft" rows="3" placeholder="输入问题，例如：我想申请退款，订单号是 #12345"></textarea>
+          <textarea v-model="draft" rows="3" placeholder="例如：2026年河北物理类、位次12000，报电气专业风险如何？"></textarea>
           <button :disabled="busy || !draft.trim()">{{ busy ? '发送中' : '发送' }}</button>
         </form>
       </section>
@@ -112,13 +119,13 @@
             <span class="pill soft">RAG</span>
           </div>
           <div class="inline-form">
-            <input v-model="searchQuery" placeholder="退款多久能到账" />
+            <input v-model="searchQuery" placeholder="2026年专业录取规则" />
             <button @click="searchKnowledge" :disabled="busy || !searchQuery.trim()">检索</button>
           </div>
           <div class="result-list">
             <article v-for="item in searchResults" :key="item.id || item.title" class="result-item">
               <strong>{{ item.title || '未命名结果' }}</strong>
-              <span>score {{ item.score ?? '-' }}</span>
+              <span>相关性 {{ item.rerank_score ?? '-' }}/10</span>
               <p>{{ item.content }}</p>
             </article>
           </div>
@@ -131,14 +138,18 @@
           </div>
           <label>
             <span>标题</span>
-            <input v-model="docTitle" placeholder="退款补充政策" />
+            <input v-model="docTitle" placeholder="2026年招生政策补充" />
           </label>
           <label>
             <span>内容</span>
             <textarea v-model="docContent" rows="5" placeholder="输入知识库内容"></textarea>
           </label>
+          <label>
+            <span>河北工业大学官方来源 URL</span>
+            <input v-model="docSourceUrl" placeholder="https://zs.hebut.edu.cn/..." />
+          </label>
           <div class="actions">
-            <button @click="submitKnowledge" :disabled="busy || !docTitle.trim() || !docContent.trim()">添加文档</button>
+            <button @click="submitKnowledge" :disabled="busy || !docTitle.trim() || !docContent.trim() || !docSourceUrl.trim()">添加文档</button>
             <label class="file-button">
               上传文件
               <input type="file" accept=".txt,.md,.json" @change="handleUpload" />
@@ -173,10 +184,12 @@ const healthOk = ref(false)
 const healthLabel = ref('未检查')
 const statusText = ref('')
 const knowledgeCount = ref('-')
-const searchQuery = ref('退款多久能到账')
+const adminToken = ref('')
+const searchQuery = ref('2026年专业录取规则')
 const searchResults = ref([])
-const docTitle = ref('退款补充政策')
-const docContent = ref('大促期间退款审核时间可能延长到 3-5 个工作日。')
+const docTitle = ref('2026年招生政策补充')
+const docContent = ref('请粘贴河北工业大学官方发布内容，并在管理端同时记录来源链接和发布日期。')
+const docSourceUrl = ref('https://zs.hebut.edu.cn/')
 const messageList = ref(null)
 
 const currentBackend = computed(() => backendMeta(settings.backend, settings))
@@ -231,14 +244,16 @@ async function sendMessage() {
     const meta = [
       response.intent,
       response.agentType,
-      response.knowledgeUsed ? 'RAG' : '',
+      response.admissionDataUsed ? '结构化录取数据' : '',
+      response.knowledgeUsed && !response.admissionDataUsed ? 'RAG' : '',
       response.escalated ? '转人工' : ''
     ].filter(Boolean).join(' · ')
     messages.value.push({
       id: createId(),
       role: 'assistant',
       content: response.response,
-      meta
+      meta,
+      citations: response.citations
     })
   } catch (error) {
     messages.value.push({
@@ -300,8 +315,8 @@ async function submitKnowledge() {
   busy.value = true
   try {
     const data = await addKnowledge(settings.backend, settings, [
-      { title: docTitle.value.trim(), content: docContent.value.trim() }
-    ])
+      { title: docTitle.value.trim(), content: docContent.value.trim(), source_url: docSourceUrl.value.trim() }
+    ], adminToken.value)
     statusText.value = JSON.stringify(data, null, 2)
     await loadStats()
   } catch (error) {
@@ -317,7 +332,7 @@ async function handleUpload(event) {
   if (!file) return
   busy.value = true
   try {
-    const data = await uploadKnowledge(settings.backend, settings, file)
+    const data = await uploadKnowledge(settings.backend, settings, file, docSourceUrl.value.trim(), adminToken.value)
     statusText.value = JSON.stringify(data, null, 2)
     await loadStats()
   } catch (error) {

@@ -1,5 +1,5 @@
 """
-EchoMind 智能客服系统 — FastAPI 入口
+河北工业大学普通本科报考咨询 — FastAPI 入口
 
 启动时打印小熊饼干图案。
 所有核心组件在 lifespan 中初始化，通过环境变量配置。
@@ -12,6 +12,7 @@ import sys
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 # 将项目根目录加入 sys.path，确保无论从哪里执行都能找到 agents/core/memory 等模块
 # 这一行必须在所有项目内部 import 之前执行
@@ -21,10 +22,10 @@ if _ROOT not in sys.path:
 
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Response, UploadFile, File
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -36,10 +37,10 @@ logger = logging.getLogger(__name__)
 
 BANNER = r"""
     ʕ•ᴥ•ʔ  ʕ•ᴥ•ʔ  ʕ•ᴥ•ʔ
-   ╔══════════════════════╗
-   ║   EchoMind  v2.0     ║
-   ║   智能客服 AI 系统    ║
-   ╚══════════════════════╝
+   ╔════════════════════════════╗
+   ║  Hebut Admissions  v2.0   ║
+   ║  河北工业大学本科报考咨询  ║
+   ╚════════════════════════════╝
     ʕ•ᴥ•ʔ  ʕ•ᴥ•ʔ  ʕ•ᴥ•ʔ
 """
 
@@ -50,6 +51,8 @@ _tool_manager = None
 _monitor      = None
 _evaluator    = None
 _skill_manager = None
+_chat_service = None
+_admission_store = None
 
 
 def _anthropic_cfg() -> Dict[str, Any]:
@@ -68,13 +71,15 @@ def _anthropic_cfg() -> Dict[str, Any]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global _orchestrator, _memory, _tool_manager, _monitor, _evaluator, _skill_manager
+    global _orchestrator, _memory, _tool_manager, _monitor, _evaluator, _skill_manager, _chat_service, _admission_store
 
     print(BANNER, flush=True)
 
     from agents.agent_orchestrator import AgentOrchestrator, Request
     from core.intent_recognizer import IntentRecognizer
+    from core.chat_service import ChatService
     from evaluation.evaluator import EndToEndEvaluator
+    from mcp.admission_data import AdmissionDataStore
     from mcp.knowledge_base import KnowledgeBase
     from mcp.tool_manager import MCPToolManager, Tool
     from memory.conversation_memory import MemoryManager
@@ -119,44 +124,90 @@ async def lifespan(app: FastAPI):
     )
 
     # MCP 工具管理器 + RAG 知识库（基于 ChromaDB 的真实检索）
-    _tool_manager = MCPToolManager(
-        api_key=cfg["api_key"],
-        base_url=cfg.get("base_url"),
-        model=cfg["model"],
-    )
     kb = KnowledgeBase(
         chroma_host=os.getenv("CHROMA_HOST", "chromadb"),
         chroma_port=int(os.getenv("CHROMA_PORT", "8000")),
         chroma_path=os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chroma"),
+        collection_name=os.getenv("KNOWLEDGE_COLLECTION", "hello_hebut"),
+        seed_dir=os.getenv(
+            "KNOWLEDGE_SEED_DIR",
+            str(pathlib.Path(_ROOT) / "data" / "demo_docs"),
+        ).strip() or None,
     )
-    logger.info(f"知识库已加载: {kb.doc_count} 个文档片段")
+    logger.info("知识库已加载: %s 个文档片段；自动导入: %s", kb.doc_count, kb.last_seed_report)
+
+    # 分数、位次属于结构化数据，使用确定性 CSV 查询，不进入向量知识库。
+    _admission_store = AdmissionDataStore(
+        os.getenv(
+            "ADMISSION_DATA_PATH",
+            str(pathlib.Path(_ROOT) / "data" / "hebut_admission.csv"),
+        )
+    )
+    logger.info("结构化录取数据已加载: %s", _admission_store.stats)
 
     def knowledge_fallback(params: Dict[str, Any], context: Optional[Dict[str, Any]], error: str):
         query = params.get("query", "")
         return [{
-            "title": "知识库降级结果",
-            "content": f"知识库暂时不可用，未能完成对“{query}”的语义检索。请稍后重试，或转人工客服确认。",
+            "title": "招生知识库降级结果",
+            "content": f"知识库暂时不可用，未能完成对“{query}”的检索。请稍后重试或通过本科招生网确认。",
             "score": 0.0,
             "fallback": True,
             "error": error,
         }]
 
-    _tool_manager.register(Tool(
-        name="knowledge_search",
-        description="搜索知识库（基于 ChromaDB 向量检索）",
-        handler=kb.search_handler,
-        schema={
-            "type": "object",
-            "properties": {
-                "query": {"type": "string"},
-                "top_k": {"type": "integer"},
+    def admission_fallback(params: Dict[str, Any], context: Optional[Dict[str, Any]], error: str):
+        return {
+            "status": "unavailable",
+            "message": "结构化录取数据暂时不可用，请稍后重试或通过本科招生网查询。",
+            "error": error,
+            "resolved": {},
+        }
+
+    def build_tool_manager() -> MCPToolManager:
+        manager = MCPToolManager(
+            api_key=cfg["api_key"],
+            base_url=cfg.get("base_url"),
+            model=cfg["model"],
+            rerank_min_score=float(os.getenv("RAG_RERANK_MIN_SCORE", "5.0")),
+        )
+        manager.register(Tool(
+            name="knowledge_search",
+            description="搜索河北工业大学官方本科招生知识库",
+            handler=kb.search_handler,
+            schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "top_k": {"type": "integer"},
+                    "categories": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["query"],
             },
-            "required": ["query"],
-        },
-        cache_ttl=300.0,
-        supports_rerank=True,
-        fallback=knowledge_fallback,
-    ))
+            cache_ttl=300.0,
+            supports_rerank=True,
+            fallback=knowledge_fallback,
+        ))
+        manager.register(Tool(
+            name="admission_data_query",
+            description="确定性查询河北工业大学河北、天津2023—2025年分专业最低分和最低位次，并生成可解释风险等级",
+            handler=_admission_store.query_handler,
+            schema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "entities": {"type": "object"},
+                    "history": {"type": "array"},
+                },
+                "required": ["query"],
+            },
+            cache_ttl=600.0,
+            fallback=admission_fallback,
+        ))
+        return manager
+
+    _tool_manager = build_tool_manager()
+
+    _chat_service = ChatService(_orchestrator, _memory, _tool_manager, recognizer=recognizer)
 
     # 性能监控（可选启动 Prometheus）
     prom_port = int(os.getenv("PROMETHEUS_PORT", "0")) or None
@@ -170,33 +221,50 @@ async def lifespan(app: FastAPI):
     await _monitor.start()
 
     # 评测器
-    _evaluator = EndToEndEvaluator(
-        orchestrator=_orchestrator,
-        recognizer=recognizer,
+    # 评测使用独立编排器，避免评测流量污染线上 Agent 统计；其余链路复用 ChatService。
+    eval_orchestrator = AgentOrchestrator(
         api_key=cfg["api_key"],
         base_url=cfg.get("base_url"),
         model=cfg["model"],
+        skill_manager=_skill_manager,
+    )
+    eval_tool_manager = build_tool_manager()
+    eval_chat_service = ChatService(eval_orchestrator, _memory, eval_tool_manager, recognizer=recognizer)
+    _evaluator = EndToEndEvaluator(
+        chat_service=eval_chat_service,
+        recognizer=recognizer,
+        api_key=cfg["api_key"],
+        base_url=cfg.get("base_url"),
+        model=os.getenv("EVAL_JUDGE_MODEL", cfg["model"]),
         baseline_path=os.getenv("EVAL_BASELINE_PATH", "/app/data/eval/baseline.json"),
     )
 
-    logger.info("EchoMind 已就绪")
+    logger.info("河北工业大学本科报考咨询服务已就绪")
     yield
 
     await _monitor.stop()
-    logger.info("EchoMind 已关闭")
+    logger.info("河北工业大学本科报考咨询服务已关闭")
 
 
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="EchoMind 智能客服",
+    title="河北工业大学本科报考咨询",
     version="2.0.0",
     lifespan=lifespan,
     docs_url="/docs",
 )
 
+_cors_origins = [
+    item.strip()
+    for item in os.getenv(
+        "CORS_ALLOW_ORIGINS",
+        "http://localhost,http://127.0.0.1,http://localhost:5173,http://127.0.0.1:5173",
+    ).split(",")
+    if item.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -205,7 +273,7 @@ app.add_middleware(
 # ── 请求/响应模型 ─────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
     message:     str
-    user_id:     str = "anonymous"
+    user_id:     Optional[str] = None
     conv_id:     Optional[str] = None
 
 
@@ -217,6 +285,16 @@ class ChatResponse(BaseModel):
     escalated:   bool
     latency_ms:  float
     knowledge_used: bool = False
+    admission_data_used: bool = False
+    citations:   List[Dict[str, Any]] = Field(default_factory=list)
+    entities:    Dict[str, List[str]] = Field(default_factory=dict)
+
+
+def require_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
+    """配置 ADMIN_API_TOKEN 后保护知识写入、Skill 重载和评测入口。"""
+    expected = os.getenv("ADMIN_API_TOKEN", "").strip()
+    if expected and x_admin_token != expected:
+        raise HTTPException(401, "缺少或使用了无效的管理令牌")
 
 
 # ── 路由 ──────────────────────────────────────────────────────────────────────
@@ -236,7 +314,7 @@ async def skills_summary():
 
 
 @app.post("/skills/reload", tags=["Skills"])
-async def reload_skills():
+async def reload_skills(_: None = Depends(require_admin)):
     """运行时重新扫描 Skill 目录，不需要重启服务。"""
     if _skill_manager is None:
         raise HTTPException(503, "Skills 未初始化")
@@ -250,111 +328,26 @@ async def reload_skills():
 async def chat(req: ChatRequest):
     """
     主对话接口。完整流程：
-      记忆读取 → 意图识别 → Agent 路由 → 执行 → 记忆写入
+      记忆读取 → 意图识别 → 结构化录取数据/官方知识检索 → Agent 路由 → 执行 → 记忆写入
     """
-    if _orchestrator is None or _memory is None:
+    if _chat_service is None:
         raise HTTPException(503, "服务未就绪")
-
-    from agents.agent_orchestrator import Request as OrcReq
-    from memory.conversation_memory import MsgRole
-
     conv_id = req.conv_id or str(uuid.uuid4())
-
-    # 1. 读取记忆上下文
-    mem_ctx = await _memory.get_context(req.user_id, conv_id, query=req.message)
-
-    # 2. 构建编排请求（含对话历史，用于意图识别上下文）
-    history = [
-        {"role": m.role.value, "content": m.content}
-        for m in mem_ctx.recent_messages[-5:]
-    ] if mem_ctx.recent_messages else None
-
-    knowledge_text, knowledge_used = await _build_knowledge_context(req.message)
-    context_parts = [mem_ctx.to_prompt_text()]
-    if knowledge_text:
-        context_parts.append(knowledge_text)
-    full_context = "\n\n".join(part for part in context_parts if part)
-
-    orch_req = OrcReq(
-        message=req.message,
-        user_id=req.user_id,
-        conv_id=conv_id,
-        context=full_context,
-        history=history,
-    )
-
-    # 3. 执行
-    result = await _orchestrator.run(orch_req)
-
-    # 4. 写入记忆
-    await _memory.add_message(req.user_id, conv_id, MsgRole.USER, req.message)
-    await _memory.add_message(req.user_id, conv_id, MsgRole.ASSISTANT, result.response)
-
-    # 5. 异步更新用户画像（不阻塞响应）
-    asyncio.create_task(_memory.update_profile(req.user_id, conv_id))
+    user_id = req.user_id or f"anon_{conv_id}"
+    result = await _chat_service.handle(req.message, user_id, conv_id)
 
     return ChatResponse(
-        conv_id=conv_id,
+        conv_id=result.conv_id,
         response=result.response,
-        intent=result.intent.value if result.intent else "other",
-        agent_type=result.agent_type.value,
+        intent=result.intent,
+        agent_type=result.agent_type,
         escalated=result.escalated,
-        latency_ms=round(result.latency_ms, 1),
-        knowledge_used=knowledge_used,
+        latency_ms=result.latency_ms,
+        knowledge_used=result.knowledge_used,
+        admission_data_used=result.admission_data_used,
+        citations=result.citations,
+        entities=result.entities,
     )
-
-
-async def _build_knowledge_context(message: str, top_k: int = 3) -> tuple[str, bool]:
-    """
-    为 /chat 主链路构建 RAG 知识上下文。
-
-    这里复用 MCPToolManager 的查询改写、并行召回、重排、fallback 能力。
-    """
-    if _tool_manager is None:
-        return "", False
-    if not _should_use_knowledge(message):
-        return "", False
-    try:
-        result = await _tool_manager.search_with_rewrite("knowledge_search", message, top_k=top_k)
-        if not result.success or not isinstance(result.data, list) or not result.data:
-            return "", False
-
-        parts = ["[知识库检索结果]"]
-        used = False
-        for i, item in enumerate(result.data[:top_k], start=1):
-            if not isinstance(item, dict):
-                continue
-            title = str(item.get("title", "未命名文档"))
-            content = str(item.get("content", "")).strip()
-            score = item.get("score", "")
-            if not content:
-                continue
-            used = True
-            parts.append(f"{i}. 标题: {title}\n   相关度: {score}\n   内容: {content[:600]}")
-
-        if not used:
-            return "", False
-        parts.append("请优先依据以上知识库内容回答；如果知识库内容不足，再结合通用客服能力说明。")
-        return "\n".join(parts), True
-    except Exception as ex:
-        logger.warning(f"构建知识库上下文失败: {ex}")
-        return "", False
-
-
-def _should_use_knowledge(message: str) -> bool:
-    """跳过纯寒暄，业务类问题才检索知识库，避免无关 RAG 干扰回复。"""
-    msg = (message or "").strip().lower()
-    if not msg:
-        return False
-    greetings = {"你好", "您好", "嗨", "hi", "hello", "hey", "早上好", "晚上好"}
-    if msg in greetings:
-        return False
-    business_keywords = [
-        "退款", "订单", "物流", "配送", "发票", "扣款", "支付", "账单", "订阅",
-        "登录", "报错", "错误", "崩溃", "会员", "积分", "账户", "密码", "地址",
-        "refund", "order", "invoice", "payment", "error", "login",
-    ]
-    return len(msg) >= 4 or any(kw in msg for kw in business_keywords)
 
 
 @app.get("/monitor")
@@ -363,6 +356,25 @@ async def monitor_summary():
     if _monitor is None:
         raise HTTPException(503, "服务未就绪")
     return _monitor.summary()
+
+
+@app.get("/admission/stats", tags=["录取数据"])
+async def admission_stats():
+    """查看结构化录取数据的覆盖范围、有效行数和版本。"""
+    if _admission_store is None:
+        raise HTTPException(503, "结构化录取数据未初始化")
+    return _admission_store.stats
+
+
+@app.get("/admission/query", tags=["录取数据"])
+async def admission_query(query: str):
+    """直接验证录取数据的确定性查询结果，不经过 LLM。"""
+    if _tool_manager is None:
+        raise HTTPException(503, "服务未就绪")
+    result = await _tool_manager.call("admission_data_query", {"query": query})
+    if not result.success:
+        raise HTTPException(503, result.error or "录取数据查询失败")
+    return result.data
 
 
 @app.get("/metrics")
@@ -374,7 +386,7 @@ async def prometheus_metrics():
 @app.post("/search")
 async def search(query: str, top_k: int = 5):
     """
-    演示检索优化链路：查询改写 → 并行召回 → 重排 → Top-K。
+    演示检索优化链路：查询改写 → 关键词/向量并行召回 → 重排 → Top-K。
     展示 MCP 工具调用的核心亮点。
     """
     if _tool_manager is None:
@@ -387,11 +399,28 @@ class DocInput(BaseModel):
     """单篇文档输入。"""
     title:   str
     content: str
+    source_url: str
+    category: Optional[str] = None
+    published_at: Optional[str] = None
+    fetched_at: Optional[str] = None
+    effective_year: Optional[int] = None
+    document_version: Optional[str] = None
+    college: Optional[str] = None
+    major: Optional[str] = None
+    section: Optional[str] = None
 
 
 class BatchDocInput(BaseModel):
     """批量文档导入请求体。"""
     documents: List[DocInput]
+
+
+def validate_official_source(source_url: str) -> None:
+    """知识写入接口仅接受河北工业大学官方域名。"""
+    parsed = urlparse(source_url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme not in {"http", "https"} or (host != "hebut.edu.cn" and not host.endswith(".hebut.edu.cn")):
+        raise HTTPException(400, f"非河北工业大学官方来源: {source_url}")
 
 
 class EvalIntentInput(BaseModel):
@@ -402,11 +431,23 @@ class EvalIntentInput(BaseModel):
 
 
 class EvalDialogInput(BaseModel):
-    """对话质量评测用例。question 单轮，turns 多轮。"""
+    """对话质量用例；required/forbidden 为硬断言，soft_* 只记录不否决。"""
     question: Optional[str] = None
     turns: Optional[List[str]] = None
     user_id: Optional[str] = None
     conv_id: Optional[str] = None
+    expected_intent: Optional[str] = None
+    expected_agent: Optional[str] = None
+    routing_assertions_hard: Optional[bool] = None
+    required_terms: Optional[List[str]] = None
+    soft_required_terms: Optional[List[str]] = None
+    forbidden_terms: Optional[List[str]] = None
+    soft_forbidden_terms: Optional[List[str]] = None
+    should_escalate: Optional[bool] = None
+    reference: Optional[str] = None
+    require_citations: Optional[bool] = None
+    require_admission_data: Optional[bool] = None
+    expectations: Optional[List[Dict[str, Any]]] = None
 
 
 class EvalRunInput(BaseModel):
@@ -416,7 +457,7 @@ class EvalRunInput(BaseModel):
 
 
 @app.post("/knowledge/add", tags=["知识库"])
-async def add_knowledge(body: BatchDocInput):
+async def add_knowledge(body: BatchDocInput, _: None = Depends(require_admin)):
     """
     批量导入文档到知识库。
 
@@ -426,8 +467,7 @@ async def add_knowledge(body: BatchDocInput):
     ```json
     {
       "documents": [
-        {"title": "退款政策", "content": "用户在购买后 7 天内可以申请无理由退款..."},
-        {"title": "配送说明", "content": "标准配送 3-5 个工作日..."}
+        {"title": "2026年招生政策补充", "content": "政策正文...", "source_url": "https://zs.hebut.edu.cn/..."}
       ]
     }
     ```
@@ -436,12 +476,19 @@ async def add_knowledge(body: BatchDocInput):
     if tool is None:
         raise HTTPException(503, "知识库未初始化")
     kb = tool.handler.__self__
-    count = kb.add_documents([{"title": d.title, "content": d.content} for d in body.documents])
+    for document in body.documents:
+        validate_official_source(document.source_url)
+    count = kb.add_documents([d.model_dump(exclude_none=True) for d in body.documents])
     return {"message": f"成功导入 {count} 个文档片段", "added_chunks": count, "total_chunks": kb.doc_count}
 
 
 @app.post("/knowledge/upload", tags=["知识库"])
-async def upload_knowledge(file: UploadFile = File(...)):
+async def upload_knowledge(
+    file: UploadFile = File(...),
+    source_url: str = Form(...),
+    category: str = Form("official"),
+    _: None = Depends(require_admin),
+):
     """
     上传文件导入知识库。
 
@@ -455,6 +502,7 @@ async def upload_knowledge(file: UploadFile = File(...)):
     if tool is None:
         raise HTTPException(503, "知识库未初始化")
     kb = tool.handler.__self__
+    validate_official_source(source_url)
 
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
@@ -469,12 +517,18 @@ async def upload_knowledge(file: UploadFile = File(...)):
             docs = _json.loads(text)
             if not isinstance(docs, list):
                 raise HTTPException(400, "JSON 文件应为数组格式: [{title, content}, ...]")
+            for doc in docs:
+                if not isinstance(doc, dict):
+                    raise HTTPException(400, "JSON 数组中的每一项都必须是对象")
+                doc.setdefault("source_url", source_url)
+                doc.setdefault("category", category)
+                validate_official_source(str(doc["source_url"]))
         except _json.JSONDecodeError as e:
             raise HTTPException(400, f"JSON 解析失败: {e}")
     else:
         # txt / md：整个文件作为一篇文档
         title = filename.rsplit(".", 1)[0] if "." in filename else filename
-        docs = [{"title": title, "content": text}]
+        docs = [{"title": title, "content": text, "source_url": source_url, "category": category}]
 
     count = kb.add_documents(docs)
     return {
@@ -491,11 +545,14 @@ async def knowledge_stats():
     if tool is None:
         raise HTTPException(503, "知识库未初始化")
     kb = tool.handler.__self__
-    return {"total_chunks": kb.doc_count}
+    return {
+        "total_chunks": kb.doc_count,
+        "seed_import": kb.last_seed_report,
+    }
 
 
 @app.post("/eval/run")
-async def run_eval(body: Optional[EvalRunInput] = None):
+async def run_eval(body: Optional[EvalRunInput] = None, _: None = Depends(require_admin)):
     """运行内置评测用例，返回评测报告。"""
     if _evaluator is None:
         raise HTTPException(503, "服务未就绪")
@@ -526,10 +583,12 @@ async def run_eval(body: Optional[EvalRunInput] = None):
         dialog_cases=dialog_cases,
     )
     return {
+        "suite_version":   report.suite_version,
         "pass_rate":       report.pass_rate,
         "total":           report.total,
         "passed":          report.passed,
         "avg_scores":      report.avg_scores,
+        "judge_stats":     report.judge_stats,
         "regressions":     report.regressions,
         "recommendations": report.recommendations,
         "results": [
@@ -548,7 +607,7 @@ async def run_eval(body: Optional[EvalRunInput] = None):
 # ── 交互式 CLI ────────────────────────────────────────────────────────────────
 async def _cli():
     print(BANNER)
-    print("EchoMind CLI — 输入 quit 退出\n")
+    print("河北工业大学本科报考咨询 CLI — 输入 quit 退出\n")
 
     from agents.agent_orchestrator import AgentOrchestrator, Request
     from memory.conversation_memory import MemoryManager, MsgRole
@@ -599,7 +658,7 @@ async def _cli():
         await mem.add_message(user_id, conv_id, MsgRole.USER, msg)
         await mem.add_message(user_id, conv_id, MsgRole.ASSISTANT, result.response)
 
-        print(f"\nEchoMind [{result.agent_type.value}]: {result.response}\n")
+        print(f"\n河工大报考助手 [{result.agent_type.value}]: {result.response}\n")
 
 
 if __name__ == "__main__":

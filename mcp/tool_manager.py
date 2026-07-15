@@ -23,6 +23,8 @@ from typing import Any, Callable, Dict, List, Optional
 
 from anthropic import AsyncAnthropic
 
+from core.llm_client import create_message, extract_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -131,12 +133,19 @@ class MCPToolManager:
       用户查询 → 查询改写（多角度子查询）→ 并行召回 → 结果重排 → 返回 Top-K
     """
 
-    def __init__(self, api_key: str, base_url: Optional[str] = None, model: str = "claude-3-5-sonnet-20241022"):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: Optional[str] = None,
+        model: str = "claude-3-5-sonnet-20241022",
+        rerank_min_score: float = 5.0,
+    ):
         kwargs: Dict[str, Any] = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
         self._client = AsyncAnthropic(**kwargs)
         self._model  = model
+        self._rerank_min_score = max(0.0, min(10.0, rerank_min_score))
         self._tools: Dict[str, Tool] = {}
         self._cache: Dict[str, tuple] = {}   # key → (result, expire_at)
 
@@ -248,7 +257,7 @@ class MCPToolManager:
 
     # ── 查询改写（解决召回不全）────────────────────────────────────────────────
 
-    async def rewrite_query(self, query: str, n: int = 3) -> List[str]:
+    async def rewrite_query(self, query: str, n: int = 3, scope: str = "") -> List[str]:
         """
         用 LLM 将原始查询改写为 n 个不同角度的子查询。
 
@@ -256,20 +265,22 @@ class MCPToolManager:
         多角度子查询并行检索后合并，显著提升召回率。
 
         示例：
-          原始: "退款流程"
-          改写: ["如何申请退款", "退款需要多少天", "退款政策是什么"]
+          原始: "专业录取规则"
+          改写: ["河北工业大学专业录取规则", "专业级差与调剂规则", "本科招生章程录取原则"]
         """
         prompt = f"""将以下用户查询改写为 {n} 个不同角度的搜索子查询，用于检索知识库。
-要求：每个子查询角度不同，覆盖原始问题的不同方面。
+检索范围：{scope or '当前工具对应的知识库'}
+要求：每个子查询角度不同，覆盖原始问题的不同方面；必须保持在检索范围内，不得扩展到无关业务。
 原始查询: "{query}"
 返回 JSON 数组，例如: ["子查询1", "子查询2", "子查询3"]"""
         prompt = self._clean_text(prompt)
         try:
-            resp = await self._client.messages.create(
+            resp = await create_message(
+                self._client,
                 model=self._model, max_tokens=256, temperature=0.3,
                 messages=[{"role": "user", "content": prompt}],
             )
-            raw = resp.content[0].text
+            raw = extract_text(resp)
             s, e = raw.find("["), raw.rfind("]") + 1
             queries = json.loads(raw[s:e])
             # 原始查询也保留，去重
@@ -284,6 +295,7 @@ class MCPToolManager:
         query: str,
         top_k: int = 5,
         context: Optional[Dict[str, Any]] = None,
+        categories: Optional[List[str]] = None,
     ) -> ToolResult:
         """
         完整的检索优化链路：查询改写 → 并行召回 → 去重 → 重排 → Top-K
@@ -291,26 +303,40 @@ class MCPToolManager:
         这是解决"检索不全、召回不好"的完整方案。
         """
         # 1. 查询改写：生成多角度子查询
-        sub_queries = await self.rewrite_query(query, n=3)
+        tool = self._tools.get(tool_name)
+        sub_queries = await self.rewrite_query(query, n=3, scope=tool.description if tool else "")
         logger.info(f"查询改写: {query!r} → {sub_queries}")
 
         # 2. 并行召回：所有子查询同时检索
-        recall_k = max(top_k, 5)
-        tasks = [
-            self.call(tool_name, {"query": q, "top_k": recall_k}, context, use_cache=True)
-            for q in sub_queries
-        ]
+        recall_k = max(top_k * 6, 30)
+        tasks = []
+        for sub_query in sub_queries:
+            params = {"query": sub_query, "top_k": recall_k}
+            if categories:
+                params["categories"] = categories
+            tasks.append(self.call(tool_name, params, context, use_cache=True))
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 3. 合并去重（按内容哈希去重）
+        # 3. 按排名轮询各子查询，避免第一个查询独占重排候选。
+        batches = [
+            result.data for result in results
+            if isinstance(result, ToolResult) and result.success and isinstance(result.data, list)
+        ]
+        candidate_limit = max(top_k * 4, 20)
         seen, merged = set(), []
-        for r in results:
-            if isinstance(r, ToolResult) and r.success and isinstance(r.data, list):
-                for item in r.data:
-                    key = hashlib.md5(str(item).encode()).hexdigest()
-                    if key not in seen:
-                        seen.add(key)
-                        merged.append(item)
+        for rank in range(max((len(batch) for batch in batches), default=0)):
+            for batch in batches:
+                if rank >= len(batch):
+                    continue
+                item = batch[rank]
+                key = self._retrieval_key(item)
+                if key not in seen:
+                    seen.add(key)
+                    merged.append(item)
+                    if len(merged) >= candidate_limit:
+                        break
+            if len(merged) >= candidate_limit:
+                break
 
         if not merged:
             return ToolResult(success=False, data=[], tool_name=tool_name, error="所有子查询均无结果")
@@ -328,34 +354,81 @@ class MCPToolManager:
         解决问题：向量检索的相似度分数不等于"对用户有用"，
         LLM 能理解语义相关性，重排后 Top-K 质量显著提升。
         """
-        if len(items) <= top_k:
-            return items
-
-        # 将结果序列化为文本供 LLM 评分
-        items_text = "\n".join(f"{i}. {json.dumps(item, ensure_ascii=False)[:200]}"
-                               for i, item in enumerate(items))
-        prompt = f"""根据用户查询，对以下检索结果按相关性打分（0-10），返回 JSON 数组。
+        items_text = "\n".join(
+            f"{index}. {self._rerank_item_text(item)}"
+            for index, item in enumerate(items)
+        )
+        prompt = f"""根据用户查询，对以下检索结果逐条给出相关性分数（0-10）。
+0 表示完全无关，10 表示直接准确回答；专业名称精确匹配应优先。不要因为必须凑数量而保留无关结果。
 用户查询: "{query}"
 检索结果:
 {items_text}
 
-返回格式（按相关性降序排列的索引列表）: [最相关的索引, ..., 最不相关的索引]
+返回格式: [{{"index":0,"score":9.5}},{{"index":1,"score":3.0}}]
 只返回 JSON 数组，不要其他文字。"""
         prompt = self._clean_text(prompt)
 
         try:
-            resp = await self._client.messages.create(
-                model=self._model, max_tokens=256, temperature=0.0,
+            resp = await create_message(
+                self._client,
+                model=self._model, max_tokens=512, temperature=0.0,
                 messages=[{"role": "user", "content": prompt}],
             )
-            raw = resp.content[0].text
+            raw = extract_text(resp)
             s, e = raw.find("["), raw.rfind("]") + 1
-            order: List[int] = json.loads(raw[s:e])
-            reranked = [items[i] for i in order if 0 <= i < len(items)]
-            return reranked[:top_k]
+            scores = json.loads(raw[s:e])
+            ranked, seen_indexes = [], set()
+            for entry in scores:
+                index = int(entry.get("index", -1))
+                score = float(entry.get("score", 0.0))
+                if (
+                    0 <= index < len(items)
+                    and index not in seen_indexes
+                    and self._rerank_min_score <= score <= 10.0
+                ):
+                    seen_indexes.add(index)
+                    item = dict(items[index]) if isinstance(items[index], dict) else {"content": items[index]}
+                    item["rerank_score"] = round(score, 2)
+                    ranked.append((score, index, item))
+            ranked.sort(key=lambda value: (-value[0], value[1]))
+            return [item for _, _, item in ranked[:top_k]]
         except Exception as ex:
-            logger.warning(f"重排失败，返回原始顺序: {ex}")
-            return items[:top_k]
+            logger.warning(f"重排失败，安全返回空结果: {ex}")
+            return []
+
+    @staticmethod
+    def _retrieval_key(item: Any) -> str:
+        if isinstance(item, dict):
+            doc_id = str(item.get("id", "")).strip()
+            if doc_id:
+                return f"id:{doc_id}"
+            content = str(item.get("content", "")).strip()
+            source = str(item.get("source_file") or item.get("source_url") or "")
+            title = str(item.get("title", ""))
+            version = str(item.get("document_version", ""))
+            chunk = item.get("chunk")
+            if (source or title) and chunk is not None:
+                content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+                identity = f"{source}|{title}|{version}|{chunk}|{content_hash}"
+            else:
+                identity = content or json.dumps(item, sort_keys=True, ensure_ascii=False)
+        else:
+            identity = str(item)
+        return hashlib.md5(identity.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _rerank_item_text(item: Any) -> str:
+        if not isinstance(item, dict):
+            return f"正文：{str(item)[:600]}"
+        labels = (
+            ("标题", "title"), ("类别", "category"), ("学院", "college"),
+            ("专业", "major"), ("章节", "section"), ("有效年份", "effective_year"),
+        )
+        metadata = "；".join(
+            f"{label}：{item.get(key)}" for label, key in labels if item.get(key) not in (None, "")
+        )
+        content = str(item.get("content", "")).strip()[:600]
+        return f"{metadata}\n正文：{content}" if metadata else f"正文：{content}"
 
     # ── 缓存 ──────────────────────────────────────────────────────────────────
 
