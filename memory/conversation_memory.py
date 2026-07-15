@@ -24,6 +24,8 @@ import chromadb
 import redis
 from anthropic import AsyncAnthropic
 
+from core.llm_client import create_message, extract_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -166,19 +168,21 @@ class MemoryManager:
             return
 
         text = self._safe_text("\n".join(f"{m.role.value}: {m.content}" for m in messages[-10:]))
-        prompt = f"""从以下对话中提炼用户偏好和关键实体，返回 JSON。
+        prompt = f"""从以下河北工业大学本科报考咨询中提炼非敏感偏好和关键实体，返回 JSON。
+不要记录姓名、手机号、身份证号、准考证号、考生号、精确地址或其他身份凭证；不要把模型推测当成用户事实。
 对话:
 {text}
 
-返回格式: {{"preferences": ["..."], "entities": {{"产品": [], "问题类型": []}}}}"""
+返回格式: {{"preferences": ["..."], "entities": {{"省份": [], "选科": [], "目标专业": [], "关注方向": []}}}}"""
         prompt = self._safe_text(prompt)
 
         try:
-            resp = await self._client.messages.create(
+            resp = await create_message(
+                self._client,
                 model=self._model, max_tokens=512, temperature=0.0,
                 messages=[{"role": "user", "content": prompt}],
             )
-            raw = resp.content[0].text
+            raw = extract_text(resp)
             s, e = raw.find("{"), raw.rfind("}") + 1
             profile_data = json.loads(raw[s:e])
 
@@ -232,6 +236,15 @@ class MemoryManager:
             summary=summary,
         )
 
+    async def clear_conversation(self, user_id: str, conv_id: str) -> None:
+        """清理指定会话的短期记忆，主要用于隔离评测会话。"""
+        user_id = self._safe_text(user_id)
+        conv_id = self._safe_text(conv_id)
+        self._redis.delete(
+            self._wm_key(user_id, conv_id),
+            self._summary_key(user_id, conv_id),
+        )
+
     # ── 压缩（防止 context 爆炸）─────────────────────────────────────────────
 
     async def _compress(self, user_id: str, conv_id: str) -> None:
@@ -253,11 +266,12 @@ class MemoryManager:
         text = self._safe_text("\n".join(f"{m.role.value}: {m.content}" for m in to_compress))
         prompt = self._safe_text(f"用 2-3 句话总结以下对话的关键信息：\n{text}")
         try:
-            resp = await self._client.messages.create(
+            resp = await create_message(
+                self._client,
                 model=self._model, max_tokens=256, temperature=0.0,
                 messages=[{"role": "user", "content": prompt}],
             )
-            summary = self._safe_text(resp.content[0].text).strip()
+            summary = self._safe_text(extract_text(resp)).strip()
         except Exception:
             summary = f"对话包含 {len(to_compress)} 条消息（摘要生成失败）"
 
