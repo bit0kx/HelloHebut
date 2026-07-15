@@ -12,8 +12,11 @@ node_modules/
 .env
 .env.example.env
 
-# 数据目录
-data/
+# 数据目录（部署知识文档需要纳入版本控制，运行数据继续忽略）
+data/*
+!data/demo_docs/
+!data/demo_docs/**
+!data/hebut_admission.csv
 logs/
 
 # IDE
@@ -36,3 +39,6 @@ build-image*.sh
 *~
 *.bak
 docker-compose(1).yml
+
+model-cache/
+tests/
