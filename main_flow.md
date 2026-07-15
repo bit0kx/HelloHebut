@@ -668,7 +668,7 @@ POST /eval/run
 | `evaluation/evaluator.py` | 意图测评、端到端对话测评、Judge、断言和基线 |
 | `monitor/performance_monitor.py` | 在线统计、异常、告警、建议和路由反馈 |
 | `frontend/src/App.vue` | 对话、知识检索、知识导入和来源列表展示 |
-| `frontend/src/lib/backends.js` | 前端请求封装和 Python/Java 响应字段归一化 |
+| `frontend/src/lib/backends.js` | 前端 Python API 请求封装和响应字段归一化 |
 | `config/nginx/nginx.conf` | 静态页面、反向代理、安全头和限流 |
 
 ## 13. 当前保守边界

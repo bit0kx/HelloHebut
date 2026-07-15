@@ -226,29 +226,6 @@ textarea:focus {
   box-shadow: 0 0 0 5px rgba(209, 79, 79, 0.13);
 }
 
-.segmented {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 5px;
-  background: #e7eef7;
-  padding: 5px;
-  border-radius: 9px;
-  margin-bottom: 14px;
-}
-
-.segmented button {
-  background: transparent;
-  color: #526174;
-  min-height: 35px;
-  box-shadow: none;
-}
-
-.segmented button.active {
-  background: #fff;
-  color: #18202c;
-  box-shadow: 0 6px 15px rgba(15, 23, 42, 0.10);
-}
-
 label {
   display: grid;
   gap: 7px;

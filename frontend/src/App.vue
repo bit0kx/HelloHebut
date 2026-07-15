@@ -12,20 +12,12 @@
       <section class="panel">
         <div class="panel-heading">
           <h2>后端</h2>
-          <span class="pill">{{ currentBackend.label }}</span>
-        </div>
-        <div class="segmented">
-          <button :class="{ active: settings.backend === 'java' }" @click="switchBackend('java')">Java</button>
-          <button :class="{ active: settings.backend === 'python' }" @click="switchBackend('python')">Python</button>
+          <span class="pill">Python</span>
         </div>
 
         <label>
-          <span>Java API</span>
-          <input v-model="settings.endpoints.java" @change="persist" placeholder="/api/java" />
-        </label>
-        <label>
           <span>Python API</span>
-          <input v-model="settings.endpoints.python" @change="persist" placeholder="/api/python" />
+          <input v-model="settings.endpoint" @change="persist" placeholder="/api/python" />
         </label>
         <label>
           <span>用户 ID</span>
@@ -54,7 +46,7 @@
         <dl>
           <div>
             <dt>当前后端</dt>
-            <dd>{{ currentBackend.label }}</dd>
+            <dd>Python</dd>
           </div>
           <div>
             <dt>健康状态</dt>
@@ -74,7 +66,7 @@
         <div>
           <span class="eyebrow">HEBUT Undergraduate Admissions</span>
           <h2>本科报考咨询</h2>
-          <p>{{ currentBackend.baseUrl }}</p>
+          <p>{{ api.baseUrl }}</p>
         </div>
         <div class="header-actions">
           <a href="https://zs.hebut.edu.cn/" target="_blank" rel="noreferrer">本科招生网</a>
@@ -86,7 +78,7 @@
         <div class="messages" ref="messageList">
           <article v-for="item in messages" :key="item.id" :class="['message', item.role]">
             <div class="message-meta">
-              <span>{{ item.role === 'user' ? '用户' : currentBackend.label }}</span>
+              <span>{{ item.role === 'user' ? '用户' : 'Python' }}</span>
               <small v-if="item.meta">{{ item.meta }}</small>
             </div>
             <p>{{ item.content }}</p>
@@ -165,7 +157,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import {
   addKnowledge,
-  backendMeta,
+  apiMeta,
   createInitialSettings,
   requestChat,
   requestHealth,
@@ -192,11 +184,8 @@ const docContent = ref('请粘贴河北工业大学官方发布内容，并在�
 const docSourceUrl = ref('https://zs.hebut.edu.cn/')
 const messageList = ref(null)
 
-const currentBackend = computed(() => backendMeta(settings.backend, settings))
-const docsUrl = computed(() => {
-  if (settings.backend === 'java') return `${currentBackend.value.baseUrl}/docs`
-  return `${currentBackend.value.baseUrl}/docs`
-})
+const api = computed(() => apiMeta(settings))
+const docsUrl = computed(() => `${api.value.baseUrl}/docs`)
 
 watch(
   () => settings.conversationId,
@@ -215,16 +204,6 @@ function createId() {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function switchBackend(type) {
-  settings.backend = type
-  persist()
-  healthOk.value = false
-  healthLabel.value = '未检查'
-  statusText.value = ''
-  searchResults.value = []
-  checkHealth()
-}
-
 function persist() {
   saveSettings(settings)
 }
@@ -236,7 +215,7 @@ async function sendMessage() {
   draft.value = ''
   busy.value = true
   try {
-    const response = await requestChat(settings.backend, settings, content)
+    const response = await requestChat(settings, content)
     if (response.conversationId && !settings.conversationId) {
       settings.conversationId = response.conversationId
       persist()
@@ -271,7 +250,7 @@ async function sendMessage() {
 
 async function checkHealth() {
   try {
-    const data = await requestHealth(settings.backend, settings)
+    const data = await requestHealth(settings)
     healthOk.value = data.status === 'ok'
     healthLabel.value = data.status || 'ok'
     statusText.value = JSON.stringify(data, null, 2)
@@ -285,11 +264,11 @@ async function checkHealth() {
 async function loadStats() {
   try {
     const [stats, monitor] = await Promise.allSettled([
-      requestKnowledgeStats(settings.backend, settings),
-      requestMonitor(settings.backend, settings)
+      requestKnowledgeStats(settings),
+      requestMonitor(settings)
     ])
     if (stats.status === 'fulfilled') {
-      knowledgeCount.value = stats.value.total_chunks ?? stats.value.totalChunks ?? '-'
+      knowledgeCount.value = stats.value.total_chunks ?? '-'
     }
     if (monitor.status === 'fulfilled') {
       statusText.value = JSON.stringify(monitor.value, null, 2)
@@ -302,7 +281,7 @@ async function loadStats() {
 async function searchKnowledge() {
   busy.value = true
   try {
-    const data = await requestSearch(settings.backend, settings, searchQuery.value, 5)
+    const data = await requestSearch(settings, searchQuery.value, 5)
     searchResults.value = data.results || []
   } catch (error) {
     statusText.value = error.message
@@ -314,7 +293,7 @@ async function searchKnowledge() {
 async function submitKnowledge() {
   busy.value = true
   try {
-    const data = await addKnowledge(settings.backend, settings, [
+    const data = await addKnowledge(settings, [
       { title: docTitle.value.trim(), content: docContent.value.trim(), source_url: docSourceUrl.value.trim() }
     ], adminToken.value)
     statusText.value = JSON.stringify(data, null, 2)
@@ -332,7 +311,7 @@ async function handleUpload(event) {
   if (!file) return
   busy.value = true
   try {
-    const data = await uploadKnowledge(settings.backend, settings, file, docSourceUrl.value.trim(), adminToken.value)
+    const data = await uploadKnowledge(settings, file, docSourceUrl.value.trim(), adminToken.value)
     statusText.value = JSON.stringify(data, null, 2)
     await loadStats()
   } catch (error) {

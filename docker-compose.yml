@@ -1,22 +1,24 @@
 # 河北工业大学本科报考咨询 — Docker Compose 服务编排
 # 三级记忆架构：Redis（工作记忆）+ ChromaDB（情景记忆 + 用户画像）
 
+name: hellohebut
+
 services:
 
   # ── Redis 缓存（工作记忆）────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: echomind-redis
+    container_name: hellohebut-redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-echomind123}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-hellohebut123}
     volumes:
       - redis-data:/data
     restart: unless-stopped
     networks:
-      - echomind-network
+      - hellohebut-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-echomind123}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-hellohebut123}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,7 +26,7 @@ services:
   # ── ChromaDB 向量数据库（情景记忆 + 用户画像）────────────────────────────────
   chromadb:
     image: chromadb/chroma:0.5.23
-    container_name: echomind-chromadb
+    container_name: hellohebut-chromadb
     ports:
       - "8001:8000"
     environment:
@@ -35,7 +37,7 @@ services:
       - chromadb-data:/chroma/chroma
     restart: unless-stopped
     networks:
-      - echomind-network
+      - hellohebut-network
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/v1/heartbeat || exit 1"]
       interval: 30s
@@ -46,7 +48,7 @@ services:
   # ── Prometheus 监控 ─────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:latest
-    container_name: echomind-prometheus
+    container_name: hellohebut-prometheus
     ports:
       - "9090:9090"
     command:
@@ -59,7 +61,7 @@ services:
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
-      - echomind-network
+      - hellohebut-network
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/-/healthy || exit 1"]
       interval: 30s
@@ -68,22 +70,22 @@ services:
       start_period: 10s
 
   # ── 本科报考咨询主应用 ───────────────────────────────────────────────────────
-  echomind:
+  hellohebut:
     build:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: echomind-app
+    container_name: hellohebut-app
     ports:
       - "8000:8000"
     env_file:
       - .env
     environment:
       # 容器内固定值，覆盖 .env 中的本地路径
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-echomind123}@redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hellohebut123}@redis:6379/0
       - CHROMA_PERSIST_DIRECTORY=/app/data/chroma
       - EVAL_BASELINE_PATH=/app/data/eval/baseline.json
-      - ECHOMIND_SKILLS_DIR=/app/skills
+      - HELLOHEBUT_SKILLS_DIR=/app/skills
       - KNOWLEDGE_COLLECTION=${KNOWLEDGE_COLLECTION:-hello_hebut}
       - KNOWLEDGE_SEED_DIR=/app/data/demo_docs
       - ADMISSION_DATA_PATH=/app/data/hebut_admission.csv
@@ -101,7 +103,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - echomind-network
+      - hellohebut-network
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
       interval: 30s
@@ -115,19 +117,17 @@ services:
       context: .
       dockerfile: Dockerfile
       target: frontend
-    container_name: echomind-frontend
+    container_name: hellohebut-frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"
     volumes:
       - nginx-logs:/var/log/nginx
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
-      echomind:
+      hellohebut:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - echomind-network
+      - hellohebut-network
     healthcheck:
       # Alpine wget 会把 localhost 优先解析到 ::1，而 Nginx 当前仅监听 IPv4。
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
@@ -138,7 +138,7 @@ services:
 
 # ── 网络 ────────────────────────────────────────────────────────────────────
 networks:
-  echomind-network:
+  hellohebut-network:
     driver: bridge
     ipam:
       config:

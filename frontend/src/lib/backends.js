@@ -1,73 +1,60 @@
-const DEFAULT_BACKENDS = {
-  python: {
-    id: 'python',
-    label: 'Python',
-    baseUrl: import.meta.env.VITE_PYTHON_API_URL || '/api/python',
-    port: '8000'
-  },
-  java: {
-    id: 'java',
-    label: 'Java',
-    baseUrl: import.meta.env.VITE_JAVA_API_URL || '/api/java',
-    port: '8080'
-  }
+const DEFAULT_API = {
+  label: 'Python',
+  baseUrl: import.meta.env.VITE_PYTHON_API_URL || '/api/python'
 }
 
 export function createInitialSettings() {
   const saved = readSettings()
   return {
-    backend: saved.backend || 'python',
     userId: saved.userId || createAnonymousUserId(),
     conversationId: saved.conversationId || '',
-    endpoints: {
-      python: saved.endpoints?.python || DEFAULT_BACKENDS.python.baseUrl,
-      java: saved.endpoints?.java || DEFAULT_BACKENDS.java.baseUrl
-    }
+    endpoint: saved.endpoint || saved.endpoints?.python || DEFAULT_API.baseUrl
   }
 }
 
 export function saveSettings(settings) {
-  localStorage.setItem('echomind.frontend.settings', JSON.stringify(settings))
+  localStorage.setItem('hellohebut.frontend.settings', JSON.stringify(settings))
 }
 
-export function backendMeta(type, settings) {
-  const meta = DEFAULT_BACKENDS[type] || DEFAULT_BACKENDS.java
+export function apiMeta(settings) {
   return {
-    ...meta,
-    baseUrl: normalizeBaseUrl(settings.endpoints[type] || meta.baseUrl)
+    ...DEFAULT_API,
+    baseUrl: normalizeBaseUrl(settings.endpoint || DEFAULT_API.baseUrl)
   }
 }
 
-export async function requestHealth(type, settings) {
-  return requestJson(backendMeta(type, settings).baseUrl, '/health')
+export async function requestHealth(settings) {
+  return requestJson(apiMeta(settings).baseUrl, '/health')
 }
 
-export async function requestMonitor(type, settings) {
-  return requestJson(backendMeta(type, settings).baseUrl, '/monitor')
+export async function requestMonitor(settings) {
+  return requestJson(apiMeta(settings).baseUrl, '/monitor')
 }
 
-export async function requestKnowledgeStats(type, settings) {
-  return requestJson(backendMeta(type, settings).baseUrl, '/knowledge/stats')
+export async function requestKnowledgeStats(settings) {
+  return requestJson(apiMeta(settings).baseUrl, '/knowledge/stats')
 }
 
-export async function requestSearch(type, settings, query, topK = 5) {
+export async function requestSearch(settings, query, topK = 5) {
   const params = new URLSearchParams({ query, top_k: String(topK) })
-  return requestJson(backendMeta(type, settings).baseUrl, `/search?${params}`, { method: 'POST' })
+  return requestJson(apiMeta(settings).baseUrl, `/search?${params}`, { method: 'POST' })
 }
 
-export async function requestChat(type, settings, message) {
-  const meta = backendMeta(type, settings)
-  const payload = buildChatPayload(type, settings, message)
-  const raw = await requestJson(meta.baseUrl, '/chat', {
+export async function requestChat(settings, message) {
+  const raw = await requestJson(apiMeta(settings).baseUrl, '/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify({
+      message,
+      user_id: settings.userId || 'anonymous',
+      conv_id: settings.conversationId || undefined
+    })
   })
-  return normalizeChatResponse(type, raw)
+  return normalizeChatResponse(raw)
 }
 
-export async function addKnowledge(type, settings, documents, adminToken = '') {
-  return requestJson(backendMeta(type, settings).baseUrl, '/knowledge/add', {
+export async function addKnowledge(settings, documents, adminToken = '') {
+  return requestJson(apiMeta(settings).baseUrl, '/knowledge/add', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -77,43 +64,27 @@ export async function addKnowledge(type, settings, documents, adminToken = '') {
   })
 }
 
-export async function uploadKnowledge(type, settings, file, sourceUrl, adminToken = '') {
+export async function uploadKnowledge(settings, file, sourceUrl, adminToken = '') {
   const form = new FormData()
   form.append('file', file)
   form.append('source_url', sourceUrl)
-  return requestJson(backendMeta(type, settings).baseUrl, '/knowledge/upload', {
+  return requestJson(apiMeta(settings).baseUrl, '/knowledge/upload', {
     method: 'POST',
     headers: adminToken ? { 'X-Admin-Token': adminToken } : {},
     body: form
   })
 }
 
-function buildChatPayload(type, settings, message) {
-  if (type === 'python') {
-    return {
-      message,
-      user_id: settings.userId || 'anonymous',
-      conv_id: settings.conversationId || undefined
-    }
-  }
+function normalizeChatResponse(raw) {
   return {
-    message,
-    user_id: settings.userId || 'anonymous',
-    conversation_id: settings.conversationId || undefined
-  }
-}
-
-function normalizeChatResponse(type, raw) {
-  return {
-    backend: type,
-    conversationId: raw.conversation_id || raw.conversationId || raw.conv_id || '',
+    conversationId: raw.conv_id || '',
     response: raw.response || '',
     intent: raw.intent || 'other',
-    agentType: raw.agent_type || raw.agentType || '',
+    agentType: raw.agent_type || '',
     escalated: Boolean(raw.escalated),
-    latencyMs: Number(raw.latency_ms ?? raw.latencyMs ?? 0),
-    knowledgeUsed: Boolean(raw.knowledge_used ?? raw.knowledgeUsed),
-    admissionDataUsed: Boolean(raw.admission_data_used ?? raw.admissionDataUsed),
+    latencyMs: Number(raw.latency_ms ?? 0),
+    knowledgeUsed: Boolean(raw.knowledge_used),
+    admissionDataUsed: Boolean(raw.admission_data_used),
     verified: raw.verified,
     grounded: raw.grounded,
     citations: Array.isArray(raw.citations) ? raw.citations : [],
@@ -145,7 +116,7 @@ function normalizeBaseUrl(value) {
 
 function readSettings() {
   try {
-    return JSON.parse(localStorage.getItem('echomind.frontend.settings') || '{}')
+    return JSON.parse(localStorage.getItem('hellohebut.frontend.settings') || '{}')
   } catch {
     return {}
   }
