@@ -1,13 +1,14 @@
-# EchoMind Skills 文档
+# 河北工业大学本科报考咨询 Skills
 
-EchoMind 启动时会从 `ECHOMIND_SKILLS_DIR` 读取 Skills，并在匹配用户请求时注入到对应 Agent 的 system prompt。Skills 适合维护业务处理规范、客服话术、技术排障 SOP、账单审核边界、升级规则和禁止事项。
+服务启动时会从 `ECHOMIND_SKILLS_DIR` 读取 Skills，并按 Agent 类型注入 system prompt。招生简章、学院介绍等非结构化事实进入带来源和年份的知识库；分数、位次等表格数据进入结构化查询工具。Skills 只维护处理规则、澄清流程、风险边界和表达规范。
 
-当前内置三类 Skills：
+当前内置四类 Skills：
 
 ```text
-skills/general_customer_service/SKILL.md  # 通用客服：接待、澄清、分流、投诉和转人工
-skills/technical_support/SKILL.md         # 技术支持：故障排查、接口错误、部署配置和安全边界
-skills/billing_support/SKILL.md           # 账单服务：扣款、退款、发票、订阅和财务审核
+skills/admission_general/SKILL.md   # 学校事实、校园生活、澄清与兜底
+skills/admission_policy/SKILL.md    # 招生政策、体检选科、收费与资助
+skills/admission_risk/SKILL.md      # 分数位次、计划和冲稳保风险
+skills/admission_planning/SKILL.md  # 专业选择、就业升学与志愿规划
 ```
 
 ## Skill 文件格式
@@ -22,10 +23,10 @@ skills/<skill_name>/SKILL.md
 
 ```markdown
 ---
-name: 技术支持处理规范
-description: 适用于 TechnicalAgent 的故障排查和升级处理规范
-keywords: 报错,错误,接口,API,部署,超时,500,401,日志
-agents: technical
+name: 录取数据与风险分析规范
+description: 适用于 RiskAgent 的分数位次、计划和冲稳保分析
+keywords:
+agents: risk
 enabled: true
 ---
 ```
@@ -34,25 +35,25 @@ enabled: true
 
 - `name`：Skill 展示名称，会出现在注入给模型的 prompt 中。
 - `description`：简短说明，方便 `/skills` 接口排查。
-- `keywords`：触发关键词，用户消息命中后才注入；多个关键词用英文逗号或中文逗号分隔均可。
-- `agents`：适用 Agent，可填 `general`、`technical`、`billing`，多个值用逗号分隔。
+- `keywords`：触发关键词，留空表示该 Agent 每次调用都注入；多个关键词用英文逗号分隔。
+- `agents`：适用 Agent，可填 `general`、`policy`、`risk`、`planning`。
 - `enabled`：是否启用，支持 `true/false`。
 
 ## 编写要求
 
 - 重要规则放在文档前半部分，因为过长内容会按 prompt 预算截断。
-- 一类 Skill 只描述一类职责，不要把技术、账单、通用客服规则混在一个文件里。
-- 必须包含“角色定位”“处理流程”“升级条件”“禁止事项”等稳定章节。
-- 对用户隐私、支付、密码、验证码、API Key、Token 等敏感信息必须写明禁止收集或禁止公开。
+- 一类 Skill 只描述一类职责，不要把动态分数、计划和年度政策硬编码进 Skill。
+- 优先包含处理范围、处理流程、信息边界和禁止事项等稳定章节。
+- 对身份证号、准考证号、考生号、验证码等敏感信息必须写明禁止收集或公开。
 - 对无法保证的事项使用保守措辞，例如“通常”“预计”“需要核验后确认”。
-- 对需要人工、财务、二线技术处理的场景要明确写出升级条件。
+- 对政策冲突、个案资格和录取异常等场景要明确写出招生办人工确认条件。
 
 ## 热加载
 
 修改 Skill 文件后，不需要重启服务，调用：
 
 ```bash
-curl -X POST http://localhost:8000/skills/reload
+curl -X POST -H "X-Admin-Token: $ADMIN_API_TOKEN" http://localhost:8000/skills/reload
 ```
 
 查看加载结果和解析错误：
