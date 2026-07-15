@@ -1,6 +1,6 @@
 # 河北工业大学本科报考咨询 Skills
 
-服务启动时会从 `ECHOMIND_SKILLS_DIR` 读取 Skills，并按 Agent 类型注入 system prompt。招生简章、学院介绍等非结构化事实进入带来源和年份的知识库；分数、位次等表格数据进入结构化查询工具。Skills 只维护处理规则、澄清流程、风险边界和表达规范。
+服务启动时会从 `HELLOHEBUT_SKILLS_DIR` 读取 Skills，并按 Agent 类型注入 system prompt。招生简章、学院介绍等非结构化事实进入带来源和年份的知识库；分数、位次等表格数据进入结构化查询工具。Skills 只维护处理规则、澄清流程、风险边界和表达规范。
 
 当前内置四类 Skills：
 
