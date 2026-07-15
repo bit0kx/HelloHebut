@@ -1,5 +1,16 @@
-# EchoMind 智能客服系统 — Docker 多阶段构建
-# 目标：生产镜像尽量精简，开发镜像包含调试工具
+# EchoMind 智能客服系统 — 前后端 Docker 多阶段构建
+# 目标：后端生产镜像尽量精简，并由独立 Nginx 目标提供前端界面
+
+# ── 前端构建阶段 ──────────────────────────────────────────────────────────────
+FROM node:22-alpine AS frontend-build
+
+WORKDIR /frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+COPY frontend/ ./
+RUN npm run build
 
 # ── 阶段 1：基础环境 ──────────────────────────────────────────────────────────
 FROM python:3.12-slim AS base
@@ -70,3 +81,14 @@ RUN mkdir -p /app/data/chroma /app/logs /app/config /app/tests && \
 EXPOSE 8000
 
 CMD ["python", "-m", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# ── 阶段 5：前端 Nginx 镜像 ──────────────────────────────────────────────────
+FROM nginx:1.27-alpine AS frontend
+
+COPY config/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY --from=frontend-build /frontend/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget -q --spider http://localhost/ || exit 1
