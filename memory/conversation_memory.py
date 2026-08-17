@@ -11,6 +11,7 @@
   - 工作记忆超过阈值时自动压缩（LLM 摘要），防止 context 爆炸
   - 所有 Embedding 通过 Anthropic API 生成，无本地模型
 """
+import asyncio
 import hashlib
 import json
 import logging
@@ -120,8 +121,9 @@ class MemoryManager:
 
         # 情景记忆：存储历史对话片段
         self._episodic = chroma.get_or_create_collection("episodic")
-        # 用户画像：存储提炼出的偏好和实体
+        # 用户画像：每个用户维护一份聚合后的偏好和实体
         self._profile  = chroma.get_or_create_collection("user_profile")
+        self._profile_locks: Dict[str, asyncio.Lock] = {}
 
     # ── 写入 ──────────────────────────────────────────────────────────────────
 
@@ -158,7 +160,7 @@ class MemoryManager:
 
     async def update_profile(self, user_id: str, conv_id: str) -> None:
         """
-        从当前工作记忆中提炼用户偏好，更新用户画像。
+        从当前工作记忆中提炼用户偏好，并合并到该用户的长期画像。
         用 LLM 提炼偏好，然后存入 ChromaDB（ChromaDB 内置 embedding，不依赖外部 API）。
         """
         user_id = self._safe_text(user_id)
@@ -186,21 +188,25 @@ class MemoryManager:
             s, e = raw.find("{"), raw.rfind("}") + 1
             profile_data = json.loads(raw[s:e])
 
-            doc_id = f"{user_id}_profile_{conv_id}"
-            doc_text = self._safe_text(json.dumps(profile_data, ensure_ascii=False))
+            # 同一进程内串行化同一用户的读-合并-写，避免并发会话互相覆盖。
+            lock = self._profile_locks.setdefault(user_id, asyncio.Lock())
+            async with lock:
+                existing_profile = await self._get_profile(user_id)
+                merged_profile = self._merge_profiles(existing_profile, profile_data)
+                if not merged_profile:
+                    return
 
-            try:
-                self._profile.delete(ids=[doc_id])
-            except Exception:
-                pass
+                doc_id = self._profile_doc_id(user_id)
+                doc_text = self._safe_text(json.dumps(merged_profile, ensure_ascii=False))
 
-            # 直接传 documents，让 ChromaDB 内置模型生成 embedding（不依赖 Voyage API）
-            self._profile.add(
-                ids=[doc_id],
-                documents=[doc_text],
-                metadatas=[{"user_id": user_id, "conv_id": conv_id,
-                            "ts": datetime.now().isoformat()}],
-            )
+                # 固定文档 ID + upsert：每个用户始终只有一份可直接更新的聚合画像。
+                self._profile.upsert(
+                    ids=[doc_id],
+                    documents=[doc_text],
+                    metadatas=[{"user_id": user_id, "conv_id": conv_id,
+                                "ts": datetime.now().isoformat(), "schema_version": 2}],
+                )
+                self._delete_legacy_profiles(user_id, doc_id)
             logger.info(f"用户画像已更新: {user_id}")
         except Exception as ex:
             logger.warning(f"更新用户画像失败: {ex}")
@@ -348,14 +354,96 @@ class MemoryManager:
             logger.warning(f"存储情景记忆失败: {ex}")
 
     async def _get_profile(self, user_id: str) -> Dict[str, Any]:
-        """获取用户画像（取最新一条）。"""
+        """获取聚合画像；兼容并合并旧版按会话存储的多条画像。"""
         try:
-            results = self._profile.get(where={"user_id": user_id}, limit=1)
-            if results["documents"]:
-                return json.loads(results["documents"][0])
-        except Exception:
-            pass
+            results = self._profile.get(where={"user_id": self._safe_text(user_id)})
+            records = []
+            ids = results.get("ids") or []
+            documents = results.get("documents") or []
+            metadatas = results.get("metadatas") or []
+            for index, document in enumerate(documents):
+                if not isinstance(document, str) or not document.strip():
+                    continue
+                metadata = metadatas[index] if index < len(metadatas) and metadatas[index] else {}
+                doc_id = ids[index] if index < len(ids) else ""
+                records.append((str(metadata.get("ts", "")), str(doc_id), document))
+
+            # ChromaDB get() 没有排序参数；旧数据先按时间排序再合并，保证结果稳定。
+            profiles = []
+            for _, _, document in sorted(records, key=lambda item: (item[0], item[1])):
+                try:
+                    value = json.loads(document)
+                except (TypeError, json.JSONDecodeError):
+                    logger.warning("跳过无法解析的用户画像文档")
+                    continue
+                if isinstance(value, dict):
+                    profiles.append(value)
+            return self._merge_profiles(*profiles)
+        except Exception as ex:
+            logger.warning(f"读取用户画像失败: {ex}")
         return {}
+
+    def _delete_legacy_profiles(self, user_id: str, canonical_id: str) -> None:
+        """删除已经合并进聚合画像的旧版按会话画像。"""
+        try:
+            results = self._profile.get(where={"user_id": user_id})
+            legacy_ids = [doc_id for doc_id in (results.get("ids") or []) if doc_id != canonical_id]
+            if legacy_ids:
+                self._profile.delete(ids=legacy_ids)
+        except Exception as ex:
+            # 聚合画像已成功 upsert，清理失败不影响本次更新；后续更新会再次尝试。
+            logger.warning(f"清理旧版用户画像失败: {ex}")
+
+    @classmethod
+    def _merge_profiles(cls, *profiles: Dict[str, Any]) -> Dict[str, Any]:
+        """按时间顺序合并画像中的列表字段，并稳定去重。"""
+        preferences: List[str] = []
+        entities: Dict[str, List[str]] = {}
+        preference_keys = set()
+        entity_keys: Dict[str, set] = {}
+
+        def add_unique(target: List[str], seen: set, value: Any) -> None:
+            text = " ".join(cls._safe_text(value).split())
+            if not text:
+                return
+            key = text.casefold()
+            if key not in seen:
+                seen.add(key)
+                target.append(text)
+
+        for profile in profiles:
+            if not isinstance(profile, dict):
+                continue
+
+            raw_preferences = profile.get("preferences", [])
+            if not isinstance(raw_preferences, list):
+                raw_preferences = [raw_preferences]
+            for value in raw_preferences:
+                add_unique(preferences, preference_keys, value)
+
+            raw_entities = profile.get("entities", {})
+            if not isinstance(raw_entities, dict):
+                continue
+            for raw_name, raw_values in raw_entities.items():
+                name = " ".join(cls._safe_text(raw_name).split())
+                if not name:
+                    continue
+                values = raw_values if isinstance(raw_values, list) else [raw_values]
+                target = entities.setdefault(name, [])
+                seen = entity_keys.setdefault(name, set())
+                for value in values:
+                    add_unique(target, seen, value)
+
+        entities = {name: values for name, values in entities.items() if values}
+        if not preferences and not entities:
+            return {}
+        return {"preferences": preferences, "entities": entities}
+
+    @staticmethod
+    def _profile_doc_id(user_id: str) -> str:
+        """生成不暴露原始用户标识的稳定画像文档 ID。"""
+        digest = hashlib.sha256(user_id.encode("utf-8")).hexdigest()
+        return f"profile_{digest}"
 
     @staticmethod
     def _wm_key(user_id: str, conv_id: str) -> str:
