@@ -1,64 +1,31 @@
-# 河北工业大学本科报考咨询前端
+# HelloHebut 前端
 
-本科报考咨询的 Vue 前端，通过统一的同源代理访问 Python 后端。
-
-## 功能
-
-- 适配 Python `/chat` 响应字段：`conv_id`、`agent_type`、`latency_ms`、`admission_data_used`。
-- 支持聊天调试、健康检查、监控摘要、知识库检索、知识库文档导入、文件上传。
-
-## 默认后端地址
-
-| 后端 | 默认地址 |
-|------|----------|
-| Python | `http://localhost:8000` |
-
-开发模式下，Vite 会代理：
-
-| 前端路径 | 代理到 |
-|----------|--------|
-| `/api/python` | `http://localhost:8000` |
+Vue 3 + Vite 7 页面提供聊天、来源展示、知识检索/导入、健康检查和监控摘要。后端接口见[技术索引](../TECHNICAL_DESIGN.md#7-接口速查)，整体链路见[主要流程](../main_flow.md)。
 
 ## 本地运行
 
-安装依赖：
+在本目录使用 Node.js 22，安装锁定依赖并启动：
 
 ```bash
-npm install
-```
-
-启动：
-
-```bash
+npm ci
 npm run dev
 ```
 
-访问：
+访问 `http://localhost:5173`。默认浏览器请求 `/api/python`，Vite 去掉此前缀并转发到 `http://localhost:8000`。
 
-```text
-http://localhost:5173
+需要覆盖地址时，在 PowerShell 中设置：
+
+```powershell
+$env:VITE_PYTHON_API_URL = "http://localhost:8000"
+npm run dev
 ```
 
-如果后端端口不是默认值，可以启动时覆盖：
+该变量同时影响代理目标与浏览器默认地址；绝对地址可能产生跨源请求，需匹配后端 CORS。页面已保存的接口设置优先于环境默认值。生产 `VITE_*` 值在构建时注入，修改后需重新构建或调整页面接口设置。
 
-```bash
-VITE_PYTHON_API_URL=http://localhost:8000 npm run dev
-```
+## 页面状态与管理操作
 
-## Docker 部署
+- 用户 ID、会话 ID、接口地址保存在 localStorage；继续对话需复用用户与会话，清空页面不删除后端记忆。
+- 管理令牌仅保存在页面内存，用于知识写入；来源 URL 要求与权限见[接口表](../TECHNICAL_DESIGN.md#7-接口速查)。
+- 页面没有评测和 Skills 管理入口，相关操作使用后端 Swagger。
 
-Docker 配置统一位于仓库根目录。回到根目录执行：
-
-```bash
-docker compose up -d --build
-```
-
-部署完成后访问 `http://localhost`。前端会通过同源路径 `/api/python` 访问 Python 后端。
-
-## 后端地址
-
-Python 后端默认地址：
-
-```text
-http://localhost:8000
-```
+Docker 启动、访问地址和排障统一见[部署文档](../DEPLOY.md)。

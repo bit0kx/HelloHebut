@@ -1,0 +1,424 @@
+AI AGENT 近半年技术调研及工程落地——与 ChatGPT 的对话总结（供 Codex 阅读）
+================================================================================
+文档生成日期：2026-11-11
+原始对话调研时间范围：2026-05-10 至 2026-11-10（2026 年近半年）
+使用说明：这是一份自包含的对话交接材料，而不是逐字转录。Codex 无需访问 ChatGPT 分享链接即可获取双方在本轮对话中确定的技术方向、方案和上下文。
+内容性质：对话中研究结论 + 工程实施建议。涉及项目版本、发布日期与论文结果的内容来自前序调研，应在实际选型、安装、引用论文前再次核对官方来源；本文不是对当前环境已完成实现的声明。
+
+一、用户的原始需求与对话进展
+--------------------------------------------------------------------------------
+1. 用户最初提出：“调研 github 或者其他领域 agent 最新技术”。
+2. 用户随后明确修正时间范围：“近半年的都调研，不要仅调研最近一个月”。由此确定调研范围为 2026-05-10～2026-11-10，既看 GitHub，又看官方技术发布、学术论文、工程实战；既关注新项目，又关注既有项目的半年内重要更新。
+3. 用户进一步提出：“结合以上调研情况，按照技术点总结具体做法：比如长期记忆怎么实现，Agentic RAG 怎么实现 测评方法 等等先进技术（除我所说的这几个之外的重要技术/框架也总结）。”
+4. ChatGPT 已针对以上要求给出：半年技术全景、框架对比、12 个重点技术模块、每个模块的基本架构和实现方法、实验评测、可用技术栈、六周学习与项目推进路线。
+5. 当前用户希望将“咱俩的对话内容”写成 TXT，以便 Codex 直接读取，因为给 Codex 公开分享链接无法看到原始对话。
+
+二、用户相关的项目背景及目标（用于技术选型，不是此次要求实施新项目）
+--------------------------------------------------------------------------------
+【目标】
+- 希望掌握先进 Agent 技术，准备 Agent 方向实习，并能将现有项目升级为有系统设计、可评测、可展示的工程项目；有研究和潜在论文创新需求。
+
+【已有项目 A：HelloHebut 招生问答 Agent】
+- 现有方案包含多 Agent / 意图细分、RAG、Redis 记忆、MCP 等要素。
+- 之前曾针对意图识别及 RAG 回答效果做过评估；后续适合升级为 Agentic RAG、可验证长期记忆、跨文档多跳检索、证据核验、评测与 Tracing 完整闭环。
+- 示例任务：政策跨年份比较、跨专业招生要求、多文档证据合并、带出处回答、无充分证据时拒答。
+
+【已有项目 B：AI 3D 打印 / Q 版人物自动化】
+- 用户已有“照片→人物解析→生成 3D Q 版效果图→结果评估→修复/简化→3D 模型/生产”的流程思路。
+- 相关模块可包括 Character Parser、Style Profile、Reference Retrieval、Identity Control、Model Adapter、Evaluator。
+- 特征解析已有姿态/人脸相关模型，例如 ONNX 版姿态检测器和 MediaPipe Face Landmarker，输出 ROI、PoseObservation、FaceObservation 等。
+- 生产约束可包括人物数量与身份映射正确、眼形表情保留、头发块状无细丝、眉毛连续实心单色、镜框镜腿加粗/普通镜片透明、手持物左右手归属不变、桌子与支撑物语义处理、可打印的细节和结构等。
+- 适合引入：LangGraph 持久工作流、视觉/几何 Evaluator、异常恢复、子 Agent、失败轨迹记忆、局部修复、任务日志、OSS 存储和任务数据库。
+- 每个任务可能产生 1～3 个约 50MB 的 3D 模型；适合把大文件放 OSS/S3，数据库保存对象 key、状态、元数据、哈希与授权信息，下载时通过短期签名 URL 而不是永久公开链接。
+
+【已有项目 C：医学论文/研究资料调研】
+- 涉及图像分割、配准、牙齿姿态估计等研究文献。适合构建带证据链的 Deep Research Agent：检索论文→筛选→抽取方法/实验指标→核实原文→对比研究→生成引用完整的报告。
+
+三、近半年值得关注的技术总览
+--------------------------------------------------------------------------------
+围绕以下 12 个重点方向建立 Agent 体系：
+01. Long-Term Memory / Episodic & Semantic & Procedural Memory
+02. Agentic RAG / Hybrid Search / Multi-hop / Evidence Verification
+03. Agent Evaluation / Tracing / Online & Offline Evals
+04. Agent Harness / Workflow / Durable Execution / Checkpoint
+05. Context Engineering / Compaction / Progressive Disclosure
+06. MCP / Agent Skills / A2A / AG-UI（工具和通信协议）
+07. Multi-Agent Collaboration（Supervisor、Router、Specialist）
+08. Browser Agent / Computer Use / Sandboxed Code Execution
+09. Self-Improvement（失败归因、技能/提示词优化）
+10. Agent RL（执行轨迹、奖励、策略训练）
+11. Multimodal Agent（视觉、视频、结构化 Observation 与工具）
+12. Agent Security & Production（权限、注入防御、成本、可观测性）
+
+前序调研观察到的工程趋势：
+- 从单纯 ReAct 工具调用转向“Agent Harness”：任务规划、状态保存、工具、长期记忆、上下文管理、执行恢复和验证相结合。
+- 从传统 RAG 转向有检索策略的 Agentic RAG：多轮检索、证据核验、知识编译和成本控制。
+- 从只看最终回答转向任务级、轨迹级和系统级评测。
+- Agent 技能、MCP 和 A2A/AG-UI 等协议让跨工具、跨 Agent、跨前端集成更标准化。
+- 训练方向开始探索利用实际 Harness 中的运行轨迹进行 Agent RL。
+
+四、代表性开源项目 / 框架（优先看官方仓库）
+--------------------------------------------------------------------------------
+【Agent 编排与执行】
+- LangGraph: https://github.com/langchain-ai/langgraph
+  状态图、条件路由、Checkpointer、持久执行、人工审批、工具循环；适合可控的复杂业务工作流。
+- Deep Agents: https://github.com/langchain-ai/deepagents
+  任务规划、子 Agent、虚拟文件系统、上下文压缩、Skills、长期任务；适合研究 Harness。
+- OpenAI Agents SDK (Python): https://github.com/openai/openai-agents-python
+  Handoff、Sessions、Tracing、Guardrails、工具调用；适合轻量和生产集成。
+- Google ADK: https://github.com/google/adk-python
+  多 Agent、工作流、MCP/A2A、Google 生态。
+- Microsoft Agent Framework: https://github.com/microsoft/agent-framework
+  企业级 Agent 编排、状态、工具和跨 Agent 集成。
+- Claude Agent SDK Python: https://github.com/anthropics/claude-agent-sdk-python
+  代码任务、Shell/文件工具、会话恢复。
+- Pydantic AI: https://github.com/pydantic/pydantic-ai
+  结构化输出、强类型接口与安全的工具交互。
+- CrewAI: https://github.com/crewAIInc/crewAI
+  多角色协作 Crews 与 Flows。
+- Agno: https://github.com/agno-agi/agno
+  AgentOS、会话管理、工具审批和部署能力。
+- Mastra: https://github.com/mastra-ai/mastra
+  TypeScript Agent、知识和工具集成。
+- 注意：前序调研指出 Microsoft AutoGen 已归档，不建议新项目不经核验就继续选择旧 AutoGen；应优先评估 Microsoft Agent Framework 官方状态。
+
+【知识检索与长期记忆】
+- RAGFlow: https://github.com/infiniflow/ragflow
+  Agentic RAG、Hybrid Retrieval、Knowledge Compilation（Wiki/Graph/Tree/Timeline 等）。前序调研提到 2026-11 初 1.0 版本，安装前核对 release。
+- Hindsight: https://github.com/vectorize-io/hindsight
+  Retain / Recall / Reflect 记忆设计与整合。
+- Mem0: https://github.com/mem0ai/mem0
+  事实提取、用户画像、长期记忆管理。
+- OpenViking: https://github.com/volcengine/OpenViking
+  统一管理记忆、知识、Skills 的上下文框架。
+- LangGraph Store: https://docs.langchain.com/oss/python/langgraph/add-memory
+  短期线程状态与跨线程 Store；具体 API 以当前文档为准。
+
+【工具与协议】
+- MCP: https://github.com/modelcontextprotocol/modelcontextprotocol
+- FastMCP: https://github.com/jlowin/fastmcp
+- Agent Skills: https://github.com/anthropics/skills
+- A2A: https://github.com/a2aproject/A2A
+- AG-UI: https://github.com/ag-ui-protocol/ag-ui
+- A2UI: https://github.com/a2ui-project/a2ui
+
+【浏览器 / 代码 / 语音】
+- Browser Use: https://github.com/browser-use/browser-use
+- Agent Browser: https://github.com/vercel-labs/agent-browser
+- OpenHands: https://github.com/OpenHands/OpenHands
+- Playwright: https://github.com/microsoft/playwright
+- LiveKit Agents: https://github.com/livekit/agents
+- Pipecat: https://github.com/pipecat-ai/pipecat
+
+【评测与训练】
+- Ragas: https://github.com/explodinggradients/ragas
+- AgentEvals: https://github.com/langchain-ai/agentevals
+- Langfuse: https://github.com/langfuse/langfuse
+- Arize Phoenix: https://github.com/Arize-ai/phoenix
+- Promptfoo: https://github.com/promptfoo/promptfoo
+- DeepEval: https://github.com/confident-ai/deepeval
+- LangSmith: https://smith.langchain.com/
+- Agent Lightning: https://github.com/microsoft/agent-lightning
+
+五、技术点 01——长期记忆（Long-Term Memory）实现
+--------------------------------------------------------------------------------
+1. 先区分存储对象，不要把所有历史聊天直接塞进单个向量库：
+   a) Working/Short-term Memory：当前线程消息、已执行步骤、工具结果、状态 → Checkpointer。
+   b) Semantic Memory：稳定事实、已确认项目配置、用户偏好 → PostgreSQL + pgvector/索引。
+   c) Episodic Memory：历史任务、成功/失败、原因、修复效果 → 轨迹摘要、事实证据、向量检索。
+   d) Procedural Memory：稳定可复用的作业流程 → Agent Skills / 版本化规则。
+2. 写入流水线：当前交互和运行轨迹→候选记忆抽取（结构化输出）→重要性过滤→实体对齐、近重复检测→时间冲突和可信度判断→证据校验→Candidate/Verified/Active→Store。
+3. 检索流水线：当前问题→识别记忆需求→命名空间 ACL 过滤→语义/关键词/时间召回→重排→去重→Token 预算选择→注入当前上下文。
+4. 冲突处理：同一实体属性有变更时保留旧版本和来源；标记 superseded / expired；不要把“新的一条”默认为正确。
+5. 推荐记忆结构至少包含：
+   memory_id, tenant_id, user_id, project_id, type, content, source_run_id, evidence_ids,
+   created_at, updated_at, valid_from, valid_until, confidence/verification_status,
+   status, version, embedding, permission_scope。
+6. 分级经验：Candidate（未经验证）→ Verified（有证据）→ Active（可检索用于任务）。高风险/敏感的记忆需人工审核；支持用户删除和跨租户隔离。
+7. 记忆整合：多次类似失败→聚合同类执行轨迹→提炼根因和可复用解决步骤→验证→写入经验/Skill，而不是保存十份重复聊天。
+8. 首选工程做法：LangGraph Checkpointer 管当前任务，LangGraph Store 或独立 Postgres 表管理长期记忆；可实验 Hindsight / Mem0。
+9. 评测：Memory Recall@K、Write Precision、冲突解决准确率、Stale Memory Rate、跨会话任务成功率、Memory Tokens/Query、检索延迟。
+10. 消融对照：无记忆 / 全对话历史 / 简单向量记忆 / 分层记忆 / 证据验证的分层记忆；构建 20-50 轮长对话与跨会话问题测试集。
+11. 注意事项：confidence 不应直接等于 LLM 自报概率；存储命名空间不是安全权限控制，权限应服务端验证。
+
+六、技术点 02——Agentic RAG 实现
+--------------------------------------------------------------------------------
+1. 传统 RAG：Question→Top-K Retrieval→Context→Answer。
+2. Agentic RAG：Question→Route/Plan→Query Decomposition→Hybrid Retrieval→Rerank→Evidence Verify→补充检索/重写查询→Grounded Answer→Citation Verify。
+3. 离线知识处理：
+   PDF/Word/HTML 等→Docling/MinerU/RAGFlow 文档解析→标题、段落、表格保留结构→层级 Chunk（例如先实验 300-700 tokens，按场景调参）→Embedding + BM25→索引与 metadata（document_id/chunk_id/title/section/page/date/version/source/ACL）。
+4. 混合检索：Dense top-20 + BM25 top-20 → RRF 融合 → Cross-Encoder / BGE Reranker → final top-8（数字仅是初始调参示例）。
+   RRF(d) = Σ_r 1/(k + rank_r(d))。
+5. Planner 示例：用户问“两年的招生要求有什么变化，跨专业有什么影响？”
+   拆解为：找旧年份政策→找新年份政策→抽取报考条件→计算差异→查找跨专业补充规定→合成引用准确的回答。
+6. Evidence Verifier 输出结构建议：
+   sufficient: bool, missing_facts: [], conflicting_sources: [], next_queries: [], decision: retrieve_again/answer/abstain。
+7. 控制规则：最大检索轮数（例如 3）、工具预算、Token 和时间上限；当证据不足且无继续检索路径时明确说明不确定，不得编造。
+8. Knowledge Compilation：提前组织 Wiki/Graph/Tree/Page Index/Timeline 等结构，让 Agent 不必每次从原始 Chunk 重新理解所有关系。优先调研 RAGFlow 实现与适配难度。
+9. 评测：Recall@K、nDCG@K、MRR、回答正确率、Faithfulness、引用正确率、证据覆盖度、拒答准确率、任务成功率、平均检索轮次、延迟和单成功任务成本。
+10. 消融 A-F：
+    A. Dense RAG；B. Dense+BM25+Reranker；C. B+Query Rewrite；D. C+Multi-hop；E. D+Evidence Verifier；F. E+Knowledge Compilation。
+11. 可研究方向：动态检索次数与深度、时间感知检索、证据充分性判断、查询规划、成本敏感多跳策略、知识结构路由、跨文档事实冲突消解。
+
+七、技术点 03——评测系统（Agent Evaluation）
+--------------------------------------------------------------------------------
+必须从“答案好不好”升级到“过程是否正确、最终环境是否成功改变”。
+
+四层评测：
+L1 组件层：分类器、Retrieval、Memory、Tools 的单测；Accuracy/F1/Recall@K/参数有效率。
+L2 轨迹层：Tool Selection、Tool Arguments、Tool Sequence、Handoff 正确性、违规调用。
+L3 任务层：Task Success、产物/数据库/页面状态、最终正确性、Faithfulness、成本、时延。
+L4 系统层：p50/p95、吞吐、并发、超时率、重复执行率、越权率、可靠性、成本。
+
+测试集建议先做 300-500 条高质量案例，不是固定标准；例如：
+- 单一事实 100 条，多跳多文档 80 条，多轮记忆 60 条，冲突/过时信息 50 条，无答案/模糊 40 条，工具异常/恶意输入 40 条，共 370 条。
+- 每条测试 case 保存 id、question、reference_answer、expected_sources、expected_tool_calls、must_not_call、expected_behavior、tags；操作类任务另需 expected_environment_state。
+- 明确 train/dev/test；研发期反复调参不能在最终 test 上过拟合。
+
+重要指标：
+- Task Success Rate = 成功任务数 / 总任务数。
+- Tool Precision = 正确的工具调用 / (正确调用 + 错误调用)，工具名和参数分别评测。
+- Cost per Successful Task = 总成本 / 成功任务数。
+- Recovery Rate = 发生可恢复异常且最终成功的任务 / 全部发生可恢复异常的任务。
+- RAG 的证据引用正确率、Faithfulness；Memory 的跨会话精确率；安全的越权率。
+
+判分策略：
+- 优先确定性断言：JSON Schema、文件存在、数据库状态、单测通过、确切引用位置和访问权限。
+- 再使用 LLM-as-Judge 判断语义是否充分，输出评分和理由；评分 Rubric 固定、模型版本固定，抽样人工标注校准。
+- 使用 Trace ID 关联模型版本、Prompt、Skill、工具参数、执行时间与结果。
+- 将线上失败转成回归测试用例：Trace→Failure Classification→Regression Dataset→修复→A/B/消融→发布。
+
+工具选型：Ragas（检索/回答和 Agent 指标）、Langfuse（Tracing/成本）、AgentEvals（轨迹评测）、Promptfoo（回归/红队）、Phoenix/LangSmith（可观测性）。
+
+八、技术点 04——Agent Harness、工作流与持久执行
+--------------------------------------------------------------------------------
+建议最小闭环：Task Intake→Planner→Executor→Verifier→[Finish | Repair | Human Approval | Fail]。
+
+工程原则：
+1. 用 LangGraph State 保存 task_id、goal、plan、current_step、tool_results、verification、retries、status 等结构化字段。
+2. 对节点划分输入输出 Schema、状态转移和最大重试次数。
+3. 使用 PostgresSaver / Checkpoint 将工作流持久化；错误后尽可能从可恢复节点继续。
+4. 对外部有副作用工具（付费生图、文件写入、转账/审批等）做任务账本和幂等处理：task_id + step_id、request_hash、result_id、status；重启先核对已有结果。
+5. Checkpoint 不保证外部系统自动 exactly-once，重放前要核实外部副作用，避免重复调用或扣费。
+6. 人工审批用于不可逆或高风险动作，不能通过模型自我授权绕过。
+
+框架选择：
+- LangGraph：流程相对可控、复杂分支和恢复。
+- Deep Agents：开放式长任务、子 Agent、文件系统、上下文压缩。
+- OpenAI Agents SDK：工具调用、Handoff、Tracing、结构化输出集成。
+
+九、技术点 05——Context Engineering（上下文工程）
+--------------------------------------------------------------------------------
+长期记忆解决“长期存什么”；上下文工程解决“当前模型这一轮应该看到什么”。
+
+重要技巧：
+- Context Selection：只召回当下相关的文档和记忆。
+- Compaction：长任务关键状态摘要，不粗暴删除所有早期消息。
+- Context Offloading：大工具输出/日志/文档存到文件或 OSS，仅在 Prompt 放路径和摘要。
+- Progressive Disclosure：需要某个 Skill 时才加载详细指令和资料。
+- Subagent Isolation：子 Agent 各自处理复杂子任务，汇报结构化结果，避免全量上下文污染。
+- Prompt Caching：固定不变的指令放在稳定前缀，视提供商缓存能力降低成本。
+
+Compaction 结构：goal、completed_steps、verified_facts、open_questions、artifact_refs、next_step、tool_versions。证据原文与日志应有可追溯引用。
+
+评测：固定质量/成功率条件下比较 Context Tokens、成本、时延、遗忘/事实错误率。
+
+十、技术点 06——MCP、Skills、A2A、AG-UI
+--------------------------------------------------------------------------------
+职责分工：
+- MCP：标准化调用工具和数据，适合把现有检索/数据库/模型 API 封装成 MCP Server。
+- Skills：可复用专业流程，不是普通 Tool；通常包含 SKILL.md、references/ 和 scripts/。
+- A2A：不同 Agent/不同服务的 Task、Message、Artifact 与通信；单个 Python 进程内的子 Agent 不必强行引入 A2A。
+- AG-UI：实时前端事件、Agent 运行状态、工具调用、人工审批等交互；A2UI 偏动态生成 UI 的表示。
+
+一个示例 Skill：policy-verification/SKILL.md，规定识别学校/年份、优先官方政策、检查年份与引用、冲突时列出多个来源、无法核实时不编造。
+
+MCP 安全重点：
+- 服务端鉴权、租户和资源级权限、工具参数 Schema、结果脱敏、日志审计。
+- 远程 MCP Server 与第三方 Skills 可能携带不可信指令，必须审核来源。
+- 协议更新较快，按官方当前版本接入，特别注意授权、会话和传输方式的变更。
+
+十一、技术点 07——Multi-Agent 协作
+--------------------------------------------------------------------------------
+常见模式：Router / Supervisor-Worker / Parallel Specialists / Planner-Executor-Verifier / Critic-Repair。
+
+推荐做法：
+1. 首先做好单 Agent 基线。
+2. 将有清晰专业边界的任务拆给 Specialist，如 Search/Analysis/Verification。
+3. 子 Agent 返回 task_id、status、result、evidence_ids、artifacts、errors 等结构化输出。
+4. 由 Supervisor 进行结果合并和冲突核验；防止重复执行、信息丢失、互相等待。
+5. 用同一数据集比较多 Agent 与单 Agent 的质量差异 ΔQ、Token、延迟、失败率；没有实证收益不增加 Agent 数量。
+
+十二、技术点 08——Browser / Computer Use / Coding Agent
+--------------------------------------------------------------------------------
+典型流程：目标→观察页面（DOM/Accessibility Tree/截图）→规划动作→执行→检查环境变化→恢复或完成。
+
+- Browser Use：开放式浏览器任务和 Agent 驱动的浏览器控制。
+- Playwright：稳定脚本操作、定位、断言、截图；必要时与视觉模型结合。
+- Agent Browser：CLI 风格的浏览器工具控制。
+- OpenHands：Coding Agent 执行环境、仓库修改和测试。
+- Sandbox：文件、代码、网络访问权限隔离；对不可信代码不直接在宿主机执行。
+
+研究方向：轨迹重放、页面变化后自动定位、DOM+视觉融合、复杂多步浏览器操作的代码复用和异常恢复。
+评测：任务成功率、动作数、错误动作率、页面变化恢复率、时延/成本。
+
+十三、技术点 09——Agent Self-Improvement
+--------------------------------------------------------------------------------
+目标不是“Agent 随意重写自己”，而是“依据证据、有约束地优化”。
+
+流程：Trace 收集→识别失败→失败分类（检索/规划/工具/格式/证据/超时）→生成 Prompt/Skill/路由/工具候选改动→回归与独立测试→人工审查→版本化上线。
+
+例如：
+- 检索失败 → Query Rewrite / Hybrid Search / 多跳。
+- 工具误用 → 更新 Tool Description 和 Schema。
+- 长任务遗忘 → State/Compaction。
+- 反复付费调用 → 缓存、幂等、停止条件。
+- 某类错误可稳定修复 → 提炼并验证 Skill。
+
+技术结合：Langfuse/LangSmith Trace、Ragas/AgentEvals、Skill 版本控制、在线反馈与人工审核。
+
+十四、技术点 10——Agent RL
+--------------------------------------------------------------------------------
+定位：科研进阶，不应在基础工程未稳定时优先做。
+
+模型：环境状态 s_t、工具/决策动作 a_t、奖励 r_t、下一状态 s_(t+1)；可通过真实执行轨迹构建训练数据。
+
+奖励示例：R = α*Success + β*Correctness - γ*TokenCost - δ*StepCost - λ*UnsafePenalty。
+实际部署中安全硬约束不能仅用负奖励代替。
+
+建议路径：可复现实验环境→采集成功/失败轨迹→可验证奖励→SFT/行为克隆基线→Agent Lightning / 适配 RL 训练→独立测试集评测；关注 GRPO 等方法。
+- Agent Lightning: https://github.com/microsoft/agent-lightning
+- 前序调研提到 2026 年 10 月 v1.0 的 Harnessed Agentic RL 方向。具体模型 benchmark 数据与结论必须查原文确认，不应直接当作自己项目的性能保证。
+
+十五、技术点 11——Multimodal Agent（重点结合视觉/3D 项目）
+--------------------------------------------------------------------------------
+推荐架构：Image/Video→CV/VLM Observation→Structured Spec→Planner→Image/3D/Tool Executor→Vision Evaluator→Geometry Evaluator→Repair。
+
+结构化 Observation 示例：people_count、subject_id、bbox、pose、face attributes、held_object ownership、support objects、camera viewpoint。
+
+注意：
+- 人物数量、手左右归属、身份映射、姿态等可优先由显式解析器验证，不应只依赖生成模型口头判断。
+- Image Evaluator 对比图像层身份相似性、人物数量、眼形与眉形、手持归属、服装、风格。
+- Geometry Evaluator 必须基于实际 3D 网格算法检查 watertight、non-manifold、自交、最小厚度等；仅看效果图不能证明可打印。
+- 失败应归因到具体模块，支持局部修复，而不是每次全部重算。
+
+十六、技术点 12——安全、部署和可观测性
+--------------------------------------------------------------------------------
+安全控制：
+- Prompt Injection：外部网页/文档/MCP 工具输出/Skills 都是不可信数据；不得提升为系统指令。
+- Tool Misuse：工具白名单、严格参数校验、最小权限、审批和审计。
+- Memory Poisoning：写入证据审核、按用户/项目 ACL 隔离、支持版本与撤销。
+- Dangerous Execution：容器沙箱、只读挂载、超时、网络边界、资源上限。
+- Infinite Loop：最大重试数/工具数/Token/费用预算。
+- Sensitive Data：PII 遮盖、日志脱敏、签名 URL、凭证只保存在秘密管理系统中。
+
+建议部署：
+FastAPI + LangGraph/Deep Agents + PostgreSQL + pgvector/Qdrant + Redis + OSS/S3 + Task Queue(Celery/Arq) + MCP + Langfuse + OpenTelemetry + Docker + Pytest/Promptfoo/Ragas。
+
+数据分层：
+- Checkpoint：任务步骤和短期会话状态。
+- Long-term Memory Store：跨任务有证据、可更新的记忆。
+- RAG Knowledge Base：版本化、可追溯的外部文档知识。
+- Business DB：账号、任务、订单、运行状态、文件对象键。
+- Object Storage：图片、视频、3D 模型、日志和大文件。
+
+上线指标：Task Success、工具参数准确率、p95 延迟、并发、队列等待、异常恢复、Token/成功任务、重复执行率、错误引用、权限拦截和安全事件。
+
+十七、建议的项目架构（Codex 实施参考）
+--------------------------------------------------------------------------------
+advanced-agent/
+├── app/
+│   ├── api/                 # FastAPI 接口
+│   ├── agents/              # 主 Agent / 专业 Agent
+│   ├── workflows/           # LangGraph State + Checkpoint
+│   ├── memory/
+│   │   ├── extractor.py
+│   │   ├── retriever.py
+│   │   ├── consolidation.py
+│   │   └── store.py
+│   ├── rag/
+│   │   ├── ingestion.py
+│   │   ├── hybrid_search.py
+│   │   ├── query_planner.py
+│   │   └── evidence_verifier.py
+│   ├── tools/               # Function Tools / MCP
+│   ├── skills/              # SKILL.md + scripts
+│   ├── context/             # Compaction / context selection
+│   ├── evaluator/           # Unit/trace/task evaluation
+│   └── security/            # ACL / guardrails
+├── datasets/
+│   ├── train/
+│   ├── dev/
+│   └── test/
+├── experiments/
+│   ├── baselines/
+│   ├── ablations/
+│   └── reports/
+├── tests/
+├── docker-compose.yml
+└── README.md
+
+此目录是建议方案，不表示现有用户仓库已经具有相同结构。Codex 接到后续实施任务时应先检查仓库、技术栈与测试，并只做必要改动。
+
+十八、建议六周路线 / 项目里程碑
+--------------------------------------------------------------------------------
+第 1 周：LangGraph、结构化工具、Checkpointer；能恢复的单 Agent。
+第 2 周：文档入库、Dense+BM25+Rerank；RAG 基线和 Recall@K。
+第 3 周：Query Planner、Multi-hop RAG、Evidence Verifier；带引用的 Agentic RAG。
+第 4 周：跨会话 Memory、冲突检测、Skills；记忆候选→核验→存储→检索。
+第 5 周：Tracing、回归数据集、故障注入、安全检查；评测报告。
+第 6 周：多 Agent/上下文优化/消融实验；可展示 Demo、README、技术指标。
+
+最有价值的消融实验：
+- RAG: Dense→Hybrid→Rewrite→Multi-hop→Evidence Verification→Knowledge Compilation。
+- Memory: 无→全文历史→普通向量→分层→证据验证+整合。
+- Workflow: 无恢复→Checkpoint→幂等恢复→Validator/Repair。
+- Architecture: 单 Agent vs Supervisor/Worker；比较成功率、费用、延迟而非只看回答长度。
+
+十九、下一步的推荐优先级及交付目标
+--------------------------------------------------------------------------------
+一线重点：
+1) LangGraph + Deep Agents（可恢复、长任务 Agent Harness）
+2) Agentic RAG（混合检索、多跳、可验证引用）
+3) Long-term Memory（分层、验证、冲突消解、整合）
+4) Agent Evaluation（完整 Trace、回归和系统评测）
+
+二线重点：
+5) Context Engineering（选择、压缩、按需加载）
+6) MCP / Skills / 安全工具执行
+7) Multi-Agent（有证据收益再增加复杂度）
+8) 浏览器/代码执行、Multimodal Agent（结合真实任务）
+
+研究进阶：
+9) Agent Self-Improvement（评测驱动优化 Skill/Prompt/路由）
+10) Agent RL（稳定环境与奖励体系成熟后引入）
+
+推荐成品：
+- 完整运行的 API / Demo；
+- 可解释的系统架构和技术选择；
+- 数据与执行轨迹可追溯；
+- 单 Agent 和多 Agent / 多检索路线的对照实验；
+- 任务成功率、引用正确率、成本、延迟等可量化指标；
+- 可复现的环境与测试脚本；
+- 安全、权限和失败恢复机制。
+
+二十、给 Codex 的具体使用提示
+--------------------------------------------------------------------------------
+本文件是上下文交接，不是立即编程的授权。阅读后应：
+1. 理解用户要求：面向近半年 Agent 前沿技术，在现有项目条件下选择真正能实现和评测的方案；用户不希望只得到项目名称或概念介绍。
+2. 若用户后续要求实现，先确认所在仓库的现有代码和状态，避免平行重建已有模块，优先最小可行改动。
+3. 按模块设计明确输入/输出 Schema、失败处理、日志与测评；不要只把复杂功能封装成更长的 Prompt。
+4. 不擅自将论文/项目宣传数据视为已复现结果；第三方模型、框架接口和 release 在写代码时重新核对当前官方文档。
+5. 关键动作先做基线和测试。所有新技术都必须能说明：相比基线提高了什么、是否付出了更多成本。
+6. 生产系统中区分业务文件、RAG 证据、长期记忆、会话 Checkpoint 和实时任务状态，不混库不混权限。
+7. 若推进 HelloHebut 项目，优先顺序：Agentic RAG→Memory→Evaluation/Trace→Checkpoint→Skills/多 Agent。
+8. 若推进 AI 3D 打印项目，优先顺序：确定性视觉和几何评测→LangGraph 持久工作流→异常重试与幂等→失败经验记忆→局部修复 Agent。
+9. 用户后续给出具体任务时，以该新任务、当前仓库代码和实际运行测试为准，本文仅供背景和架构参考。
+
+================================================================================
+总结核心：
+最值得构建的体系不是“多接几个 Agent”或“多加一些工具”，而是：
+可恢复 Agent Harness + 自适应 Agentic RAG + 可验证长期记忆 + 完整任务/轨迹评测
++ Context Engineering + 工具/Skills 协议 + 失败驱动优化。
+以基线、消融、可复现指标与安全控制证明这些能力有实际价值。
+================================================================================

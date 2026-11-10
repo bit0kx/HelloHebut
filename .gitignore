@@ -42,3 +42,6 @@ docker-compose(1).yml
 
 model-cache/
 tests/
+
+# Local project archive
+/HelloHebut.zip
