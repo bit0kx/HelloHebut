@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Optional
 from mcp.knowledge_indexing import INDEX_VERSION, contextual_chunks, lexical_score, split_text
 from mcp.knowledge_catalog import KnowledgeCatalog
 from core.runtime import CURRENT_RUN
+from mcp.lexical_retrieval import ANALYZER_VERSION, BM25Cache, BM25Index, without_filter_year
 
 logger = logging.getLogger(__name__)
 _SEARCH_SNAPSHOT = ContextVar('knowledge_search_snapshot', default=None)
@@ -50,8 +51,17 @@ class KnowledgeBase:
         collection_name: Optional[str] = None,
         seed_dir: Optional[str] = None,
         redis_url: Optional[str] = None,
+        lexical_mode: str = 'filtered_legacy',
+        fusion_mode: str = 'balanced',
     ):
         import chromadb
+        if lexical_mode not in {'legacy', 'filtered_legacy', 'bm25'}:
+            raise ValueError('RAG_LEXICAL_MODE must be legacy, filtered_legacy or bm25')
+        self._lexical_mode = lexical_mode
+        self._fusion_mode = fusion_mode
+        if self._fusion_mode not in {'legacy', 'balanced'}:
+            raise ValueError('RAG_FUSION_MODE must be legacy or balanced')
+        self._bm25_cache = BM25Cache()
 
         # 优先连接独立 ChromaDB 服务；默认 Embedding 在本 Python 客户端计算。
         self._use_server = False
@@ -387,6 +397,8 @@ class KnowledgeBase:
         year_filter = {'year': year} if year is not None else {}
         vector = self._vector_search(query, top_k, categories, **year_filter)
         keyword = self._keyword_search(query, top_k, categories, **year_filter)
+        if getattr(self, '_fusion_mode', 'legacy') == 'balanced':
+            return self._balanced_fusion(vector, keyword, top_k)
         items: Dict[str, Dict[str, Any]] = {}
         scores: Dict[str, float] = {}
         for weight, ranked in ((0.6, vector), (0.4, keyword)):
@@ -439,6 +451,22 @@ class KnowledgeBase:
             if item["id"] in selected_ids and item["id"] not in protected_ids
         ]
         return self._interleave_channels(remaining, *protected_channels, top_k)
+
+    @staticmethod
+    def _balanced_fusion(vector, lexical, limit):
+        """Equal-weight RRF; sparse hits win ties instead of being demoted by channel weight."""
+        items, scores, lexical_ranks, vector_ranks = {}, {}, {}, {}
+        for ranked, ranks in ((vector, vector_ranks), (lexical, lexical_ranks)):
+            for rank, item in enumerate(ranked, 1):
+                key = item['id']
+                if key in ranks:
+                    continue
+                ranks[key] = rank
+                items.setdefault(key, {}).update(item)
+                scores[key] = scores.get(key, 0.0) + .5/(60+rank)
+        ordered = sorted(items, key=lambda key: (-scores[key], lexical_ranks.get(key, float('inf')),
+                                                 vector_ranks.get(key, float('inf')), key))
+        return [{**items[key], 'retrieval_score': round(scores[key], 6)} for key in ordered[:limit]]
 
     @staticmethod
     def _interleave_channels(
@@ -512,7 +540,23 @@ class KnowledgeBase:
         where = self._active_where(self._category_where(categories, year))
         if where:
             kwargs["where"] = where
+        mode = getattr(self, '_lexical_mode', 'legacy')
+        lexical_query = without_filter_year(query, year) if mode != 'legacy' else query
         try:
+            if mode == 'bm25':
+                loader = lambda: self._collection.get(**kwargs)
+                cache = getattr(self, '_bm25_cache', None)
+                if cache is not None and getattr(self, '_catalog', None):
+                    key = (self._snapshot()['generation'], tuple(sorted(categories or [])), year, ANALYZER_VERSION)
+                    index = cache.get_or_build(key, loader)
+                else:
+                    index = BM25Index(loader())
+                ranked = []
+                for score, (doc_id, doc, meta) in index.rank(lexical_query, top_k):
+                    item = self._result_item(doc_id, doc, meta)
+                    item['keyword_score'] = round(score, 6)
+                    ranked.append(item)
+                return ranked
             stored = self._collection.get(**kwargs)
         except Exception as exc:
             logger.warning("知识库关键词召回失败: %s", exc)
@@ -523,7 +567,7 @@ class KnowledgeBase:
             stored.get("documents") or [],
             stored.get("metadatas") or [],
         ):
-            score = lexical_score(query, doc, meta)
+            score = lexical_score(lexical_query, doc, meta)
             if score:
                 item = self._result_item(doc_id, doc, meta)
                 item["keyword_score"] = score
@@ -591,7 +635,13 @@ class KnowledgeBase:
     def cache_epoch(self):
         return str(self._snapshot()['generation']) if self._catalog else 'legacy'
 
+    def retrieval_cache_scope(self):
+        return f"{self.cache_epoch()}:{getattr(self, '_lexical_mode', 'legacy')}:{getattr(self, '_fusion_mode', 'legacy')}:{ANALYZER_VERSION}"
+
     def _snapshot(self):
+        search = _SEARCH_SNAPSHOT.get()
+        if search and search[0] is self:
+            return search[1]
         run = CURRENT_RUN.get()
         if run is None:
             return self._catalog.read()
@@ -608,6 +658,8 @@ class KnowledgeBase:
             return {'enabled': False}
         active = self._catalog.read()
         return {'enabled': True, 'generation': active['generation'], 'documents': len(active['documents']),
+                'lexical_mode': getattr(self, '_lexical_mode', 'legacy'), 'analyzer': ANALYZER_VERSION,
+                'fusion_mode': getattr(self, '_fusion_mode', 'legacy'),
                 'rollback_generations': [item['generation'] for item in self._catalog.history()]}
 
     def rollback(self, generation):

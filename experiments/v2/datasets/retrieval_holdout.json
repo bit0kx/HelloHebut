@@ -1,0 +1,16 @@
+{
+  "benchmark_id": "stage3-source-separated-validation-v1",
+  "annotation": "按来源文件与内置章程开发集分开，首轮运行前固定；首轮失败随后用于诊断融合问题，因此现为开发验证集，不再是未触碰的 holdout。标签由已收录正文整理，未经人工复核。",
+  "cases": [
+    {"id":"vehicle_directions","query":"2026年车辆工程有哪些培养方向","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之机械工程学院.txt","contains_all":["智能网联汽车","新能源汽车"]}]},
+    {"id":"mechatronics_jobs","query":"2026年机械电子工程优势就业领域是什么","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之机械工程学院.txt","contains_all":["机器人设计与应用","机电一体化装备设计与开发"]}]},
+    {"id":"english_courses","query":"2026年英语专业特色和主要课程","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之外国语学院.txt","contains_all":["英语+国际组织","法律英语"]}]},
+    {"id":"japanese_courses","query":"2026年日语专业医疗康养方向学哪些课程","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之外国语学院.txt","contains_all":["医疗日语翻译","中国传统医学日译"]}]},
+    {"id":"french_partners","query":"2026年法语专业有哪些海外合作学校","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之外国语学院.txt","contains_all":["阿尔图瓦大学","列日大学"]}]},
+    {"id":"architecture_degree","query":"2026年建筑学学制和授予的学位是什么","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt","contains_all":["学制五年","建筑学学士学位"]}]},
+    {"id":"environment_courses","query":"2026年环境设计专业主要学习哪些课程","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt","contains_all":["人体工学与室内设计原理","景观设计原理"]}]},
+    {"id":"art_technology_jobs","query":"2026年艺术与科技毕业后能从事哪些工作","year":2026,"targets":[{"source_file":"河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt","contains_all":["数字交互与用户体验设计","新媒体与虚拟现实"]}]},
+    {"id":"absent_2024_vehicle","query":"2024年车辆工程培养方向","year":2024,"targets":[]},
+    {"id":"absent_2025_architecture","query":"2025年建筑学学制","year":2025,"targets":[]}
+  ]
+}

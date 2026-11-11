@@ -9,6 +9,7 @@ import unittest
 from core.runtime import CURRENT_RUN, RunContext
 from mcp.knowledge_base import KnowledgeBase
 from mcp.knowledge_catalog import KnowledgeCatalog, PublicationConflict
+from mcp.lexical_retrieval import BM25Cache
 from mcp.tool_manager import MCPToolManager, Tool
 from redis_support import RedisProcess
 
@@ -71,6 +72,8 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
         self.kb._collection = Collection()
         self.kb._catalog = KnowledgeCatalog(self.server.url, 'publication-test')
         self.kb._catalog.client.flushdb()
+        self.kb._bm25_cache = BM25Cache()
+        self.kb._lexical_mode, self.kb._fusion_mode = 'bm25', 'balanced'
 
     def tearDown(self):
         self.kb._catalog.close()
@@ -146,6 +149,39 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
             CURRENT_RUN.reset(token)
         self.assertEqual(self.kb.search('政策')[0]['content'], '新政策')
 
+    def test_publication_during_search_cannot_poison_new_generation_index(self):
+        self.kb.add_documents([document('旧校区资料')])
+        original = self.kb._vector_search
+        def publish_during_vector(*args, **kwargs):
+            self.kb.add_documents([document('新校区资料')])
+            return []
+        self.kb._vector_search = publish_during_vector
+        self.assertEqual(self.kb.search('校区', year=2026)[0]['content'], '旧校区资料')
+        self.kb._vector_search = original
+        self.assertEqual(self.kb._keyword_search('校区', 8, None, year=2026)[0]['content'], '新校区资料')
+
+    def test_bm25_cache_isolates_year_category_and_rollback(self):
+        self.kb.add_documents([document('旧年校区', effective_year=2025, category='policy'),
+                               document('本年校区', category='policy'),
+                               document('专业校区', title='专业', category='major')])
+        def lookup(year, category):
+            return {row['content'] for row in self.kb._keyword_search('校区', 8, [category], year=year)}
+        self.assertEqual(lookup(2025, 'policy'), {'旧年校区'})
+        self.assertEqual(lookup(2026, 'policy'), {'本年校区'})
+        self.assertEqual(lookup(2026, 'major'), {'专业校区'})
+        self.assertEqual(lookup(2024, 'major'), set())
+        old = int(self.kb.cache_epoch())
+        self.kb.add_documents([document('更新校区', category='policy')])
+        self.assertEqual(lookup(2026, 'policy'), {'更新校区'})
+        self.kb.rollback(old)
+        self.assertEqual(lookup(2026, 'policy'), {'本年校区'})
+
+    def test_tool_cache_scope_changes_with_retrieval_strategy(self):
+        self.kb.add_documents([document('校区')])
+        before = self.kb.retrieval_cache_scope()
+        self.kb._fusion_mode = 'legacy'
+        self.assertNotEqual(before, self.kb.retrieval_cache_scope())
+
     def test_seed_file_replacement_removes_deleted_documents(self):
         import json
         root = Path(__file__).resolve().parents[1] / 'tmp'
@@ -161,7 +197,7 @@ class PublicationTests(unittest.IsolatedAsyncioTestCase):
         self.kb.add_documents([document('旧政策')])
         worker = MCPToolManager('test-key')
         worker.register(Tool('lookup', 'test', self.kb.search_handler, {'type': 'object'},
-                             cache_ttl=300, cache_scope=self.kb.cache_epoch))
+                             cache_ttl=300, cache_scope=self.kb.retrieval_cache_scope))
         try:
             first = await worker.call('lookup', {'query': '政策'})
             self.kb.add_documents([document('新政策')])  # No worker.invalidate_cache call.

@@ -129,6 +129,8 @@ async def lifespan(app: FastAPI):
 
     # MCP 工具管理器 + RAG 知识库（基于 ChromaDB 的真实检索）
     kb = KnowledgeBase(
+        lexical_mode=os.getenv('RAG_LEXICAL_MODE', 'filtered_legacy'),
+        fusion_mode=os.getenv('RAG_FUSION_MODE', 'balanced'),
         redis_url=os.getenv('REDIS_URL', 'redis://redis:6379/0'),
         chroma_host=os.getenv("CHROMA_HOST", "chromadb"),
         chroma_port=int(os.getenv("CHROMA_PORT", "8000")),
@@ -191,7 +193,7 @@ async def lifespan(app: FastAPI):
                 "additionalProperties": False,
             },
             cache_ttl=300.0,
-            cache_scope=kb.cache_epoch,
+            cache_scope=kb.retrieval_cache_scope,
             supports_rerank=True,
             fallback=knowledge_fallback,
         ))

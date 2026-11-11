@@ -1,4 +1,5 @@
 """Actual Chroma/Redis publication fault checks and a small labeled retrieval development set."""
+import argparse
 import hashlib
 import json
 import math
@@ -14,12 +15,15 @@ def inside(reference):
     from core.runtime import CURRENT_RUN, RunContext
     from mcp.knowledge_base import KnowledgeBase
     from mcp.knowledge_catalog import KnowledgeCatalog
+    from mcp.lexical_retrieval import BM25Cache
     client = chromadb.HttpClient(host='chromadb', port=8000,
                                 settings=chromadb.Settings(anonymized_telemetry=False))
     name = 'v2_acceptance_' + uuid.uuid4().hex
     kb = KnowledgeBase.__new__(KnowledgeBase)
     kb._collection = client.create_collection(name)
     kb._catalog = KnowledgeCatalog(os.environ['REDIS_URL'], name)
+    kb._bm25_cache = BM25Cache()
+    kb._lexical_mode, kb._fusion_mode = 'bm25', 'balanced'  # Exercise the optional index cache too.
     checks = []
 
     def check(label, passed):
@@ -33,7 +37,7 @@ def inside(reference):
         first = kb._catalog.read()
         token = CURRENT_RUN.set(RunContext())
         try:
-            kb.cache_epoch()
+            kb.search('测试住宿费', year=2026)  # Populate old generation's BM25 index before publication.
             kb.add_documents([doc('新版本：测试住宿费970元。')])
             pinned = kb.search('测试住宿费', year=2026)
             check('inflight_read_keeps_old_snapshot', pinned and all('970元' not in r['content'] for r in pinned))
@@ -72,6 +76,9 @@ def inside(reference):
     collection = os.getenv('V2_KNOWLEDGE_COLLECTION', 'hello_hebut_v2')
     kb._collection = client.get_collection(collection)
     kb._catalog = KnowledgeCatalog(os.environ['REDIS_URL'], collection)
+    kb._bm25_cache = BM25Cache()
+    kb._lexical_mode = os.getenv('RAG_LEXICAL_MODE', 'filtered_legacy')
+    kb._fusion_mode = os.getenv('RAG_FUSION_MODE', 'balanced')
     rows = []
     token = CURRENT_RUN.set(RunContext())
     try:
@@ -106,6 +113,9 @@ if __name__ == '__main__':
     if '--inside' in sys.argv:
         print(json.dumps(inside(json.load(sys.stdin)), ensure_ascii=True))
     else:
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--report', default='experiments/v2/reports/stage3_storage_retrieval.json')
+        args = parser.parse_args()
         root = Path(__file__).resolve().parents[3]
         dataset = (root / 'experiments/v2/datasets/retrieval_reference.json').read_text(encoding='utf-8')
         output = subprocess.check_output(['docker', 'compose', 'exec', '-T', 'hellohebut', 'python', '-c',
@@ -113,7 +123,9 @@ if __name__ == '__main__':
                                          cwd=root, input=dataset, text=True, encoding='utf-8', timeout=100)
         report = json.loads(output.strip().splitlines()[-1])
         report['dataset_sha256'] = hashlib.sha256(dataset.encode()).hexdigest()
-        (root / 'experiments/v2/reports/stage2_storage_retrieval.json').write_text(
+        report['source_sha256'] = {name: hashlib.sha256((root/name).read_bytes()).hexdigest()
+                                  for name in ('mcp/knowledge_base.py', 'mcp/lexical_retrieval.py')}
+        (root / args.report).write_text(
             json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
         print(json.dumps({k: report[k] for k in ('storage_passed','storage_total','recall_at_8','ndcg_at_8')}))
         raise SystemExit(0 if report['storage_passed']==report['storage_total'] else 1)

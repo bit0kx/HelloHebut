@@ -11,7 +11,8 @@ import httpx
 ROOT = Path(__file__).resolve().parents[3]
 
 VECTOR_CHECK = '''
-import json, os, importlib.metadata as m
+import json, os, hashlib, importlib.metadata as m
+from pathlib import Path
 import chromadb
 from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 client = chromadb.HttpClient(host='chromadb', port=8000,
@@ -21,7 +22,11 @@ vectors = DefaultEmbeddingFunction()(['admission tuition'])
 result = collection.query(query_texts=['admission tuition'], n_results=3)
 print(json.dumps({'onnxruntime': m.version('onnxruntime'), 'chroma': m.version('chromadb'),
                   'dimensions': len(vectors[0]), 'documents': collection.count(),
-                  'vector_results': len(result['ids'][0])}))
+                  'vector_results': len(result['ids'][0]),
+                  'retrieval_config': {'lexical': os.getenv('RAG_LEXICAL_MODE', 'filtered_legacy'),
+                                       'fusion': os.getenv('RAG_FUSION_MODE', 'balanced')},
+                  'runtime_source_sha256': {name: hashlib.sha256(Path(name).read_bytes()).hexdigest()
+                      for name in ('api/main.py', 'mcp/knowledge_base.py', 'mcp/lexical_retrieval.py')}}))
 '''
 
 
@@ -30,7 +35,7 @@ def main():
     parser.add_argument('--api', default='http://localhost:18000')
     parser.add_argument('--web', default='http://localhost:8088')
     parser.add_argument('--build-mode', choices=['standard', 'reused_local_base'], required=True)
-    parser.add_argument('--report', default='experiments/v2/reports/stage2_deployment.json')
+    parser.add_argument('--report', default='experiments/v2/reports/stage3_deployment.json')
     args = parser.parse_args()
     rows = []
 
@@ -57,6 +62,8 @@ def main():
                                                'python', '-c', VECTOR_CHECK], cwd=ROOT, text=True, timeout=45)
             details = json.loads(output.strip().splitlines()[-1])
             assert details['dimensions'] == 384 and details['documents'] > 0 and details['vector_results'] == 3
+            assert all(hashlib.sha256((ROOT/name).read_bytes()).hexdigest() == digest
+                       for name, digest in details['runtime_source_sha256'].items()), 'runtime_source_mismatch'
             return details
         check('actual_onnx_embedding_and_chroma_query', vector_search)
 
@@ -103,6 +110,15 @@ def main():
             return {'status': data['status'], 'verified': data['verified'],
                     'citation_count': len(data['citations'])}
         check('live_rag_verified_accommodation_answer', policy_answer)
+
+        def campus_answer():
+            _, data = chat('2026年河北工业大学有哪些校区？')
+            assert data['knowledge_used'] and data['citations']
+            assert data['status'] == 'completed' and data['verified'] is True
+            assert all(name in data['response'] for name in ['北辰', '红桥', '廊坊'])
+            return {'status': data['status'], 'verified': data['verified'],
+                    'citation_count': len(data['citations']), 'all_three_campuses': True}
+        check('live_rag_verified_campus_answer', campus_answer)
 
         def missing_tuition_rates():
             _, data = chat('河北工业大学普通本科专业学费标准是多少？')

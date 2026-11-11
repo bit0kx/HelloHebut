@@ -1,0 +1,120 @@
+{
+  "storage_checks": [
+    {
+      "check": "inflight_read_keeps_old_snapshot",
+      "passed": true
+    },
+    {
+      "check": "new_request_sees_only_shorter_new_revision",
+      "passed": true
+    },
+    {
+      "check": "interrupted_real_embedding_write_stays_invisible",
+      "passed": true
+    },
+    {
+      "check": "rollback_restores_old_revision",
+      "passed": true
+    }
+  ],
+  "storage_passed": 4,
+  "storage_total": 4,
+  "benchmark_id": "stage2-builtin-development-v1",
+  "annotation": "从项目已收录正文整理的开发集，待用户人工复核；不是独立人工测试集。",
+  "retrieval": [
+    {
+      "id": "accommodation",
+      "returned": 8,
+      "titles": [
+        "2026年收费、合作办学与学生资助",
+        "河北工业大学历年录取成绩官方查询入口",
+        "河北工业大学2026年本科招生简章之利物浦学院",
+        "2026年体检和专业限制",
+        "河北工业大学2026年本科招生简章之化工学院",
+        "河北工业大学2026年本科招生简章之外国语学院",
+        "河北工业大学2026年本科招生简章之能源与环境工程学院"
+      ],
+      "recall_at_8": 1.0,
+      "ndcg_at_8": 1.0
+    },
+    {
+      "id": "campuses",
+      "returned": 8,
+      "titles": [
+        "河北工业大学2026年本科招生简章之人文与法律学院",
+        "河北工业大学基本情况与校区",
+        "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+        "河北工业大学2026年本科招生简章之经济管理学院",
+        "河北工业大学2026年本科招生简章之能源与环境工程学院",
+        "河北工业大学2026年本科招生简章之化工学院"
+      ],
+      "recall_at_8": 1.0,
+      "ndcg_at_8": 0.6309297535714575
+    },
+    {
+      "id": "adjustment",
+      "returned": 8,
+      "titles": [
+        "2026年专业安排、调剂与高考改革规则",
+        "河北工业大学历年录取成绩官方查询入口",
+        "河北工业大学2026年本科招生简章之土木与交通学院",
+        "河北工业大学2026年本科招生简章之化工学院",
+        "河北工业大学2026年本科招生简章之理学院",
+        "河北工业大学2026年本科招生简章之外国语学院",
+        "河北工业大学2026年本科招生简章之机械工程学院",
+        "河北工业大学2026年本科招生简章之建筑与艺术设计学院"
+      ],
+      "recall_at_8": 1.0,
+      "ndcg_at_8": 1.0
+    },
+    {
+      "id": "contact",
+      "returned": 8,
+      "titles": [
+        "河北工业大学本科招生官方联系渠道",
+        "河北工业大学2026年本科招生简章之化工学院",
+        "河北工业大学2026年本科招生简章之经济管理学院",
+        "河北工业大学2026年本科招生简章之外国语学院",
+        "河北工业大学历年招生计划官方查询入口",
+        "河北工业大学历年录取成绩官方查询入口"
+      ],
+      "recall_at_8": 1.0,
+      "ndcg_at_8": 1.0
+    },
+    {
+      "id": "absent_2024",
+      "returned": 0,
+      "titles": [],
+      "empty_as_expected": true
+    },
+    {
+      "id": "absent_2025",
+      "returned": 0,
+      "titles": [],
+      "empty_as_expected": true
+    }
+  ],
+  "recall_at_8": 1.0,
+  "ndcg_at_8": 0.9077324383928644,
+  "publication": {
+    "enabled": true,
+    "generation": 16,
+    "documents": 23,
+    "lexical_mode": "filtered_legacy",
+    "analyzer": "cjk-ngram-v1",
+    "fusion_mode": "balanced",
+    "rollback_generations": [
+      15,
+      14,
+      13,
+      12,
+      11
+    ]
+  },
+  "limitations": "Small source-derived development set, without reranking; not an independent quality benchmark.",
+  "dataset_sha256": "10e33652acbdfad7bc260f4e41585d4515fde4c718ea98d7c6323a760c1070ee",
+  "source_sha256": {
+    "mcp/knowledge_base.py": "938445496f4f010c8ba2903c536189056af1b28787439502b765439a9295d28f",
+    "mcp/lexical_retrieval.py": "9f601c37849dc0f22c211103a18ac3e78f1e1c3993a8b04c7b1e81c0caab2cbc"
+  }
+}
