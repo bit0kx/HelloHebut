@@ -1,338 +1,219 @@
-"""
-招生咨询 Skill 加载器。
-
-Skill 是一段可热加载的业务能力说明，用来补充 Agent 的 system prompt。
-它适合放置企业话术、处理流程、合规边界、排障 SOP 等需要运营侧快速调整的规则。
-"""
+"""Validated, progressively disclosed Agent Skills. Files never grant permissions."""
+from dataclasses import dataclass, field
+import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+import re
+
+import yaml
 
 logger = logging.getLogger(__name__)
+ROLES = {'general', 'policy', 'risk', 'planning'}
+METADATA = {'version', 'agents', 'keywords', 'references', 'dependencies', 'tests', 'always', 'author', 'label'}
+
+
+class UniqueSafeLoader(yaml.SafeLoader):
+    pass
+
+
+def _unique_mapping(loader, node, deep=False):
+    result = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if not isinstance(key, str) or key in result:
+            raise ValueError('skill_duplicate_or_nonstring_key')
+        result[key] = loader.construct_object(value_node, deep=deep)
+    return result
+
+
+UniqueSafeLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
 
 
 @dataclass
 class Skill:
-    """单个 Skill 的标准化表示，屏蔽 Markdown/JSON 等不同文件格式差异。"""
     name: str
     description: str
     content: str
     path: str
-    keywords: List[str] = field(default_factory=list)
-    agents: List[str] = field(default_factory=list)
+    keywords: list[str] = field(default_factory=list)
+    agents: list[str] = field(default_factory=list)
     enabled: bool = True
+    version: str = '1.0.0'
+    references: list[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
+    tests: list[str] = field(default_factory=list)
+    content_hash: str = ''
 
-    def matches(self, message: str, agent_type: Optional[str] = None) -> bool:
-        """
-        判断当前请求是否应该注入这个 Skill。
+    def matches(self, message, agent_type=None):
+        return bool(self.enabled and (not self.agents or not agent_type or agent_type in self.agents)
+                    and (not self.keywords or any(k.lower() in (message or '').lower() for k in self.keywords)))
 
-        - agents 为空：适用于所有 Agent；否则只匹配指定 Agent。
-        - keywords 为空：作为全局 Skill 注入；否则只有命中关键词才注入。
-        """
-        if not self.enabled:
-            return False
+    def to_prompt_block(self, max_chars=3200):
+        # Never cut instructions in half. An oversized optional skill can be omitted.
+        text = f'### {self.name} v{self.version}\n{self.content.strip()}'
+        if self.references:
+            text += '\n按需参考（用skill_reference_read读取）：' + ', '.join(self.references)
+        return text if len(text) <= max_chars else ''
 
-        if self.agents and agent_type and agent_type.lower() not in self.agents:
-            return False
-
-        if not self.keywords:
-            return True
-
-        lowered = (message or "").lower()
-        return any(keyword.lower() in lowered for keyword in self.keywords)
-
-    def to_prompt_block(self, max_chars: int = 3200) -> str:
-        """格式化为可直接拼入 system prompt 的文本块，并限制单个 Skill 长度。"""
-        body = self.content.strip()
-        if len(body) > max_chars:
-            body = body[:max_chars].rstrip() + "\n..."
-        description = f"\n说明: {self.description}" if self.description else ""
-        return f"### {self.name}{description}\n{body}"
-
-    def to_summary(self) -> Dict[str, Any]:
-        """返回 API 可序列化摘要，避免把完整长文本默认暴露给健康检查。"""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "path": self.path,
-            "keywords": self.keywords,
-            "agents": self.agents,
-            "enabled": self.enabled,
-            "content_chars": len(self.content),
-        }
+    def to_summary(self):
+        return {'name': self.name, 'description': self.description, 'version': self.version,
+                'keywords': self.keywords, 'agents': self.agents, 'enabled': self.enabled,
+                'content_chars': len(self.content), 'content_hash': self.content_hash,
+                'references': self.references, 'dependencies': self.dependencies, 'tests': self.tests}
 
 
 class SkillManager:
-    """
-    从目录中发现、解析并管理 Skills。
+    SUPPORTED_SUFFIXES = {'.md', '.txt', '.json'}
 
-    支持两种常用结构：
-      1. skills/refund/SKILL.md
-      2. skills/refund.json / skills/refund.md / skills/refund.txt
-    """
-
-    SUPPORTED_SUFFIXES = {".md", ".txt", ".json"}
-
-    def __init__(self, root_dir: str, max_prompt_chars: int = 5000):
+    def __init__(self, root_dir, max_prompt_chars=5000):
         self.root_dir = Path(root_dir).expanduser().resolve()
-        self.max_prompt_chars = max_prompt_chars
-        self._skills: List[Skill] = []
-        self._errors: List[str] = []
+        self.max_prompt_chars = max(200, min(int(max_prompt_chars), 20000))
+        self._skills, self._errors = [], []
 
     @property
-    def skills(self) -> List[Skill]:
+    def skills(self):
         return list(self._skills)
 
     @property
-    def errors(self) -> List[str]:
+    def errors(self):
         return list(self._errors)
 
-    def load(self) -> List[Skill]:
-        """重新扫描目录并加载 Skills；单个文件失败不会影响其他 Skill 生效。"""
-        loaded: List[Skill] = []
-        errors: List[str] = []
-
-        if not self.root_dir.exists():
-            logger.info(f"Skill 目录不存在，跳过加载: {self.root_dir}")
-            self._skills = []
-            self._errors = []
-            return []
-
-        for path in self._discover_files(self.root_dir):
-            try:
-                skill = self._load_file(path)
-                if skill is not None:
+    def load(self):
+        loaded, errors, names = [], [], set()
+        if self.root_dir.exists():
+            for path in self._discover_files(self.root_dir):
+                try:
+                    skill = self._load_file(path)
+                    if skill.name in names:
+                        raise ValueError('duplicate_skill_name')
+                    names.add(skill.name)
                     loaded.append(skill)
-            except Exception as ex:
-                msg = f"{path}: {ex}"
-                errors.append(msg)
-                logger.warning(f"Skill 加载失败: {msg}")
-
-        self._skills = loaded
-        self._errors = errors
-        self._log_loaded_skills()
+                except Exception as exc:
+                    errors.append(f'{path.relative_to(self.root_dir).as_posix()}: {type(exc).__name__}')
+        self._skills, self._errors = loaded, errors
+        logger.info('Skills加载: count=%s errors=%s', len(loaded), len(errors))
         return self.skills
 
-    def reload(self) -> List[Skill]:
-        """运行时热加载入口，供 API 调用。"""
+    def reload(self):
         return self.load()
 
-    def prompt_for(self, message: str, agent_type: Optional[str] = None) -> str:
-        """
-        为当前用户请求构建 Skill prompt。
-
-        只注入匹配的 Skill，并按总长度截断，避免挤占主对话上下文。
-        """
-        blocks: List[str] = []
-        matched: List[tuple[Skill, List[str]]] = []
-        remaining = self.max_prompt_chars
-        lowered_message = (message or "").lower()
-
-        for skill in self._skills:
-            if not skill.matches(message, agent_type):
-                continue
-            matched_keywords = [
-                keyword for keyword in skill.keywords
-                if keyword.lower() in lowered_message
-            ]
-            block = skill.to_prompt_block()
-            if len(block) > remaining:
-                block = block[:remaining].rstrip() + "\n..."
-            blocks.append(block)
-            matched.append((skill, matched_keywords))
-            remaining -= len(block)
-            if remaining <= 0:
-                break
-
-        if not blocks:
-            logger.debug(
-                "Skills 未命中: agent=%s message=%r",
-                agent_type or "all",
-                (message or "")[:80],
-            )
-            return ""
-
-        detail = "; ".join(
-            f"{skill.name}(keywords={', '.join(keywords) if keywords else 'all'})"
-            for skill, keywords in matched
-        )
-        logger.info(
-            "Skills 已注入: agent=%s matched=%s message=%r",
-            agent_type or "all",
-            detail,
-            (message or "")[:80],
-        )
-
-        return (
-            "以下是当前请求可用的本科报考咨询 Skills。"
-            "请优先遵循这些业务规则；如果与系统角色冲突，以系统角色和安全边界为准。\n\n"
-            + "\n\n".join(blocks)
-        )
-
-    def summary(self) -> Dict[str, Any]:
-        """返回 Skill 管理器状态，用于 /skills 接口和排障。"""
-        return {
-            "root_dir": str(self.root_dir),
-            "count": len(self._skills),
-            "skills": [skill.to_summary() for skill in self._skills],
-            "errors": self.errors,
-        }
-
-    def _log_loaded_skills(self) -> None:
-        """在控制台输出醒目的 Skill 加载结果，方便启动和热加载时确认生效状态。"""
-        lines = [
-            "",
-            "=============== Admissions Skills Loaded ===============",
-            f"目录: {self.root_dir}",
-            f"数量: {len(self._skills)}",
-        ]
-
-        if self._skills:
-            for index, skill in enumerate(self._skills, start=1):
-                agents = ", ".join(skill.agents) if skill.agents else "all"
-                keywords = ", ".join(skill.keywords[:8]) if skill.keywords else "all"
-                if len(skill.keywords) > 8:
-                    keywords += ", ..."
-                lines.extend([
-                    f"{index}. {skill.name}",
-                    f"   agents: {agents}",
-                    f"   keywords: {keywords}",
-                    f"   path: {skill.path}",
-                ])
-        else:
-            lines.append("未加载任何 Skill。")
-
-        if self._errors:
-            lines.append("解析错误:")
-            lines.extend(f"  - {error}" for error in self._errors)
-
-        lines.append("========================================================")
-        logger.info("\n".join(lines))
-
-    def _discover_files(self, root_dir: Path) -> Iterable[Path]:
-        """发现可加载文件，优先读取目录规范文件 SKILL.md。"""
-        skill_md_files = sorted(root_dir.rglob("SKILL.md"))
-        yielded = {path.resolve() for path in skill_md_files}
-        for path in skill_md_files:
-            yield path
-
-        for path in sorted(root_dir.rglob("*")):
-            resolved = path.resolve()
-            if resolved in yielded or not path.is_file():
-                continue
-            if path.name.startswith(".") or path.name.upper() == "README.MD":
-                continue
-            if path.suffix.lower() in self.SUPPORTED_SUFFIXES:
+    def _discover_files(self, root):
+        # References/assets belong to a skill, not independently trusted instructions.
+        yield from sorted(root.glob('*/SKILL.md'))
+        for path in sorted(root.iterdir()):
+            if path.is_file() and path.suffix.lower() in self.SUPPORTED_SUFFIXES and path.name.upper() != 'README.MD':
                 yield path
 
-    def _load_file(self, path: Path) -> Optional[Skill]:
-        if path.suffix.lower() == ".json":
-            return self._load_json(path)
-        return self._load_text(path)
-
-    def _load_json(self, path: Path) -> Optional[Skill]:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(raw, dict):
-            raise ValueError("JSON Skill 必须是对象格式")
-
-        content = str(raw.get("content") or raw.get("instructions") or "").strip()
-        if not content:
-            raise ValueError("缺少 content 或 instructions")
-
-        return Skill(
-            name=str(raw.get("name") or path.stem),
-            description=str(raw.get("description") or ""),
-            content=content,
-            path=str(path),
-            keywords=self._as_list(raw.get("keywords")),
-            agents=[item.lower() for item in self._as_list(raw.get("agents"))],
-            enabled=self._as_bool(raw.get("enabled"), default=True),
-        )
-
-    def _load_text(self, path: Path) -> Optional[Skill]:
-        raw = path.read_text(encoding="utf-8")
-        meta, body = self._split_front_matter(raw)
-        body = body.strip()
-        if not body:
-            return None
-
-        default_name = path.parent.name if path.name == "SKILL.md" else path.stem
-        name = str(meta.get("name") or self._first_heading(body) or default_name)
-
-        # 如果首行标题只是 Skill 名称，注入 prompt 时去掉它，减少重复噪音。
-        body = self._strip_first_heading(body, name)
-
-        return Skill(
-            name=name,
-            description=str(meta.get("description") or ""),
-            content=body,
-            path=str(path),
-            keywords=self._as_list(meta.get("keywords")),
-            agents=[item.lower() for item in self._as_list(meta.get("agents"))],
-            enabled=self._as_bool(meta.get("enabled"), default=True),
-        )
-
-    def _split_front_matter(self, raw: str) -> tuple[Dict[str, Any], str]:
-        """
-        解析 Markdown 顶部的简单 front matter。
-
-        这里刻意不用 PyYAML，避免为一个轻量配置格式新增运行时依赖。
-        """
-        text = raw.lstrip()
-        if not text.startswith("---"):
-            return {}, raw
-
-        lines = text.splitlines()
-        if not lines or lines[0].strip() != "---":
-            return {}, raw
-
-        meta: Dict[str, Any] = {}
-        end_idx: Optional[int] = None
-        for idx, line in enumerate(lines[1:], start=1):
-            if line.strip() == "---":
-                end_idx = idx
-                break
-            if ":" not in line:
-                continue
-            key, value = line.split(":", 1)
-            meta[key.strip()] = value.strip().strip("\"'")
-
-        if end_idx is None:
-            return {}, raw
-        return meta, "\n".join(lines[end_idx + 1:])
+    def _read(self, path, limit=65536):
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.root_dir) or not resolved.is_file() or resolved.stat().st_size > limit:
+            raise ValueError('skill_path_or_size_invalid')
+        return resolved.read_text(encoding='utf-8')
 
     @staticmethod
-    def _first_heading(body: str) -> Optional[str]:
-        for line in body.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("#"):
-                return stripped.lstrip("#").strip() or None
-        return None
-
-    @staticmethod
-    def _strip_first_heading(body: str, name: str) -> str:
-        lines = body.splitlines()
-        if not lines:
-            return body
-        first = lines[0].strip()
-        if first.startswith("#") and first.lstrip("#").strip() == name:
-            return "\n".join(lines[1:]).strip()
-        return body
-
-    @staticmethod
-    def _as_list(value: Any) -> List[str]:
-        if value is None or value == "":
+    def _as_list(value):
+        if value is None or value == '':
             return []
         if isinstance(value, list):
-            return [str(item).strip() for item in value if str(item).strip()]
-        return [item.strip() for item in str(value).split(",") if item.strip()]
+            if any(not isinstance(v, str) for v in value):
+                raise ValueError('skill_list_requires_strings')
+            return [v.strip() for v in value if v.strip()]
+        if not isinstance(value, str):
+            raise ValueError('skill_list_requires_text')
+        return [v.strip() for v in value.split(',') if v.strip()]
 
-    @staticmethod
-    def _as_bool(value: Any, default: bool = False) -> bool:
-        if value is None or value == "":
-            return default
-        if isinstance(value, bool):
-            return value
-        return str(value).strip().lower() not in {"0", "false", "no", "off", "disabled"}
+    def _split_front_matter(self, raw):
+        lines = raw.lstrip().splitlines()
+        if not lines or lines[0].strip() != '---':
+            raise ValueError('skill_frontmatter_required')
+        end = next((i for i in range(1, len(lines)) if lines[i].strip() == '---'), None)
+        if end is None:
+            raise ValueError('skill_frontmatter_not_closed')
+        header = '\n'.join(lines[1:end])
+        if len(header) > 8192 or any(isinstance(token, (yaml.AliasToken, yaml.AnchorToken)) for token in yaml.scan(header)):
+            raise ValueError('skill_yaml_alias_not_allowed')
+        metadata = yaml.load(header, Loader=UniqueSafeLoader)
+        if not isinstance(metadata, dict):
+            raise ValueError('skill_frontmatter_mapping_required')
+        return metadata, '\n'.join(lines[end+1:]).strip()
+
+    def _load_file(self, path):
+        raw = self._read(path)
+        if path.suffix.lower() == '.json':
+            meta = json.loads(raw)
+            body = str(meta.pop('content', meta.pop('instructions', ''))).strip()
+        else:
+            meta, body = self._split_front_matter(raw)
+        if not isinstance(meta, dict) or not body:
+            raise ValueError('skill_body_required')
+        allowed = {'name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools',
+                   'agents', 'keywords', 'enabled', 'version'}
+        if set(meta)-allowed:
+            raise ValueError('unknown_skill_frontmatter_field')
+        name, description = meta.get('name'), meta.get('description')
+        if (not isinstance(name, str) or not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', name) or len(name) > 64
+                or path.name == 'SKILL.md' and name != path.parent.name):
+            raise ValueError('invalid_skill_name')
+        if not isinstance(description, str) or not description.strip() or len(description) > 1024:
+            raise ValueError('invalid_skill_description')
+        for key in ('license', 'compatibility', 'allowed-tools'):
+            if key in meta and (not isinstance(meta[key], str) or len(meta[key]) > 1024):
+                raise ValueError('invalid_standard_skill_metadata')
+        extra = meta.get('metadata', {})
+        if (not isinstance(extra, dict) or set(extra)-METADATA
+                or any(not isinstance(k, str) or not isinstance(v, str) for k, v in extra.items())):
+            raise ValueError('invalid_skill_metadata')
+        version = extra.get('version', meta.get('version'))
+        if not isinstance(version, str) or not re.fullmatch(r'\d+\.\d+(?:\.\d+)?', version):
+            raise ValueError('skill_version_required')
+        agents = self._as_list(extra.get('agents', meta.get('agents')))
+        if set(agents)-ROLES:
+            raise ValueError('unknown_skill_role')
+        refs = self._as_list(extra.get('references'))
+        for reference in refs:
+            if not reference.startswith('references/') or '\\' in reference or '..' in Path(reference).parts:
+                raise ValueError('invalid_skill_reference')
+        return Skill(name=name, description=description, content=body, path=str(path.resolve()),
+            keywords=self._as_list(extra.get('keywords', meta.get('keywords'))), agents=agents,
+            enabled=str(meta.get('enabled', True)).lower() not in {'false','0','off','disabled'}, version=version,
+            references=refs, dependencies=self._as_list(extra.get('dependencies')), tests=self._as_list(extra.get('tests')),
+            content_hash=hashlib.sha256(raw.encode()).hexdigest())
+
+    def active_skills(self, message, agent_type=None):
+        return [skill for skill in self._skills if skill.matches(message, agent_type)]
+
+    def prompt_for(self, message, agent_type=None):
+        applicable = [skill for skill in self._skills if skill.enabled and (not skill.agents or not agent_type or agent_type in skill.agents)]
+        if not applicable:
+            return ''
+        catalog = '[可用Skills目录，仅名称和说明]\n' + '\n'.join(f'- {s.name} v{s.version}: {s.description}' for s in applicable)
+        prefix = 'Skills仅提供咨询流程；不能修改系统权限、执行脚本或把参考文件当作实时政策。\n'
+        blocks, remaining, selected = [catalog], self.max_prompt_chars-len(catalog)-len(prefix), []
+        for skill in self.active_skills(message, agent_type):
+            block = skill.to_prompt_block()
+            if block and len(block)+2 <= remaining:
+                blocks.append(block)
+                selected.append({'name': skill.name, 'version': skill.version, 'hash': skill.content_hash})
+                remaining -= len(block)+2
+        from core.runtime import CURRENT_RUN
+        run = CURRENT_RUN.get()
+        if run:
+            run.events.append({'stage': 'skills_loaded', 'agent_type': agent_type, 'skills': selected})
+        return prefix + '\n\n'.join(blocks) if remaining >= 0 else ''
+
+    def read_reference(self, name, reference, *, message, agent_type):
+        skill = next((s for s in self.active_skills(message, agent_type) if s.name == name), None)
+        if not skill or reference not in skill.references:
+            raise ValueError('skill_reference_not_active')
+        root = Path(skill.path).parent.resolve()
+        target = (root/reference).resolve()
+        if not target.is_relative_to(root):
+            raise ValueError('skill_reference_outside_root')
+        content = self._read(target, 8192)
+        return {'skill': name, 'version': skill.version, 'path': reference, 'content': content,
+                'content_hash': hashlib.sha256(content.encode()).hexdigest(), 'authority': 'procedure_not_policy'}
+
+    def summary(self):
+        return {'root_dir': str(self.root_dir), 'count': len(self._skills),
+                'skills': [skill.to_summary() for skill in self._skills], 'errors': self.errors}

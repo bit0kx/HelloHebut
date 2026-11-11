@@ -17,7 +17,7 @@
 
         <label>
           <span>Python API</span>
-          <input v-model="settings.endpoint" @change="persist" placeholder="/api/python" />
+          <input v-model="settings.endpoint" :disabled="busy" @change="persist" placeholder="/api/python" />
         </label>
         <label>
           <span>用户 ID</span>
@@ -25,7 +25,7 @@
         </label>
         <label>
           <span>会话 ID</span>
-          <input v-model="settings.conversationId" @change="persist" placeholder="自动生成" />
+          <input v-model="settings.conversationId" :disabled="busy || Boolean(settings.pendingRequest)" @change="persist" placeholder="自动生成" />
         </label>
         <label>
           <span>管理令牌（仅保存在当前页面内存）</span>
@@ -78,6 +78,13 @@
       </header>
 
       <section class="chat-panel">
+        <div v-if="Object.keys(settings.lastConditions || {}).length" class="conditions-bar">
+          <strong>当前报考条件</strong>
+          <button v-for="(values, key) in settings.lastConditions" :key="key" :disabled="busy"
+                  @click="draft = `更正${conditionLabels[key] || key}为${values.join('、')}`">
+            {{ conditionLabels[key] || key }}：{{ values.join('、') }} · 纠正
+          </button>
+        </div>
         <div class="messages" ref="messageList">
           <article v-for="item in messages" :key="item.id" :class="['message', item.role]">
             <div class="message-meta">
@@ -106,6 +113,8 @@
         </div>
 
         <form class="composer" @submit.prevent="sendMessage">
+          <p v-if="busy" role="status">{{ progressLabel }}</p>
+          <button v-else-if="settings.pendingRequest" type="button" @click="resumePending">查询未完成任务</button>
           <textarea v-model="draft" rows="3" placeholder="例如：2026年河北物理类、位次12000，报电气专业风险如何？"></textarea>
           <button :disabled="busy || !draft.trim()">{{ busy ? '发送中' : '发送' }}</button>
         </form>
@@ -163,6 +172,7 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import PreferencePanel from './components/PreferencePanel.vue'
+import { resumeChat } from './lib/backends'
 import {
   addKnowledge,
   apiMeta,
@@ -180,6 +190,14 @@ const settings = reactive(createInitialSettings())
 const messages = ref([])
 const draft = ref('')
 const busy = ref(false)
+const progress = ref('queued')
+const stageLabels = { queued: '等待处理', running: '正在处理', memory_read: '读取已确认条件', route: '整理问题',
+  required_tools: '查询录取数据', retrieve: '查找官方资料', answer: '整理回答', verify: '核对依据',
+  finalize: '完成核验', commit: '保存结果', reconnecting: '连接中断，正在查询原任务' }
+const progressLabel = computed(() => stageLabels[progress.value] || '正在处理')
+const conditionLabels = { province: '省份', subject_combination: '选科', rank: '位次', score: '分数',
+  admission_year: '报考年份', major: '专业', exam_mode: '考试类型', batch: '批次', candidate_type: '考生类型',
+  college: '学院', campus: '校区' }
 const healthOk = ref(false)
 const healthLabel = ref('未检查')
 const statusText = ref('')
@@ -221,6 +239,7 @@ function newConversation() {
   settings.conversationId = ''
   delete settings.pendingRequest
   messages.value = []
+  settings.lastConditions = {}
   persist()
 }
 
@@ -231,7 +250,8 @@ async function sendMessage() {
   draft.value = ''
   busy.value = true
   try {
-    const response = await requestChat(settings, content)
+    progress.value = 'queued'
+    const response = await requestChat(settings, content, stage => { progress.value = stage })
     if (response.conversationId && !settings.conversationId) {
       settings.conversationId = response.conversationId
       persist()
@@ -241,7 +261,7 @@ async function sendMessage() {
       response.agentType,
       response.admissionDataUsed ? '结构化录取数据' : '',
       response.knowledgeUsed && !response.admissionDataUsed ? 'RAG' : '',
-      response.escalated ? '转人工' : ''
+      response.escalated ? '建议咨询招生办' : ''
     ].filter(Boolean).join(' · ')
     messages.value.push({
       id: createId(),
@@ -262,6 +282,22 @@ async function sendMessage() {
     preferencePanel.value?.reload()
     await nextTick()
     messageList.value?.scrollTo({ top: messageList.value.scrollHeight, behavior: 'smooth' })
+  }
+}
+
+async function resumePending() {
+  busy.value = true
+  progress.value = 'reconnecting'
+  try {
+    const response = await resumeChat(settings, stage => { progress.value = stage })
+    messages.value.push({ id: createId(), role: 'assistant', content: response.response,
+                          meta: '已恢复任务结果', citations: response.citations })
+    persist()
+  } catch (error) {
+    messages.value.push({ id: createId(), role: 'assistant', content: error.message, meta: '任务查询' })
+  } finally {
+    busy.value = false
+    preferencePanel.value?.reload()
   }
 }
 

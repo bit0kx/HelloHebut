@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS {jobs} (
+    job_id CHAR(64) CHARACTER SET ascii COLLATE ascii_bin PRIMARY KEY,
+    owner_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    kind VARCHAR(20) NOT NULL,
+    fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+    payload_json LONGTEXT NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
+    attempts INT NOT NULL DEFAULT 0,
+    lease_token VARCHAR(64) NULL,
+    lease_until DATETIME(6) NULL,
+    available_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    result_json LONGTEXT NULL,
+    error_type VARCHAR(100) NOT NULL DEFAULT '',
+    events_json LONGTEXT NOT NULL,
+    sequence BIGINT NOT NULL DEFAULT 0,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    KEY claim_queue (status, available_at, lease_until),
+    CONSTRAINT {ck_jobs_payload} CHECK (JSON_VALID(payload_json)),
+    CONSTRAINT {ck_jobs_events} CHECK (JSON_VALID(events_json)),
+    CONSTRAINT {ck_jobs_result} CHECK (result_json IS NULL OR JSON_VALID(result_json))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_bin;

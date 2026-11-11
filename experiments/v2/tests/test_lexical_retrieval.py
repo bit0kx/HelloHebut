@@ -2,8 +2,8 @@ import math
 import unittest
 
 from experiments.v2.scripts.retrieval_ablation import matches, score
-from mcp.knowledge_base import KnowledgeBase
-from mcp.lexical_retrieval import BM25Cache, BM25Index, tokenize, without_filter_year
+from tooling.knowledge_base import KnowledgeBase
+from tooling.lexical_retrieval import BM25Cache, BM25Index, tokenize, without_filter_year
 
 
 def corpus(*documents):

@@ -1,0 +1,11 @@
+{
+  "benchmark_tier": "development",
+  "case_count": 30,
+  "approved_count": 0,
+  "scoring_version": "human-review-rubric-v1",
+  "passed": true,
+  "errors": [],
+  "eligible_for_independent_acceptance": false,
+  "limitations": "Declarations and snapshot hashes are checked; human identity, source authority and label truth still require actual review.",
+  "input_sha256": "d0c41afa2ad923b379e202acfb24c8f65e7cba1064dfe70a9d7ac0a3806dbf71"
+}

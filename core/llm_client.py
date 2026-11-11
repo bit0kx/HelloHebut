@@ -63,6 +63,7 @@ async def create_message(client: Any, **kwargs: Any) -> Any:
     if run is None:
         return await client.messages.create(**kwargs, **options)
     run.consume('model')
+    await run.persist_usage()
     with run.span('llm', model=str(kwargs.get('model', ''))) as event:
         response = await client.messages.create(**kwargs, **options)
         usage = getattr(response, 'usage', None)

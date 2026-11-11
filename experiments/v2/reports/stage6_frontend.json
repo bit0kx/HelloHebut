@@ -1,0 +1,52 @@
+{
+  "mode": "frontend_http_and_stream_fault_fixtures",
+  "checks": [
+    {
+      "check": "split_utf8_sse_final_and_condition_restore",
+      "passed": true
+    },
+    {
+      "check": "stream_disconnect_queries_same_job_without_resubmit",
+      "passed": true
+    },
+    {
+      "check": "failed_task_clears_retry_key",
+      "passed": true
+    },
+    {
+      "check": "lost_post_response_retry_keeps_id_and_server_owned_identity",
+      "passed": true
+    },
+    {
+      "check": "same_message_retry_queries_existing_run_without_enqueue",
+      "passed": true
+    },
+    {
+      "check": "different_message_cannot_replace_pending_request",
+      "passed": true
+    },
+    {
+      "check": "resume_recovers_id_when_post_response_was_lost",
+      "passed": true
+    },
+    {
+      "check": "expired_resume_clears_identity_conditions_and_pending",
+      "passed": true
+    },
+    {
+      "check": "endpoint_change_never_forwards_old_bearer_or_task",
+      "passed": true
+    },
+    {
+      "check": "legacy_saved_session_is_bound_once_without_losing_owner",
+      "passed": true
+    },
+    {
+      "check": "late_session_response_cannot_overwrite_new_backend_session",
+      "passed": true
+    }
+  ],
+  "passed": 11,
+  "total": 11,
+  "limitations": "Verifies request/reconnect contracts, not browser layout or visual inspection."
+}

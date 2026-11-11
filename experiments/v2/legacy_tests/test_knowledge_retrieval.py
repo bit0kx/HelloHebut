@@ -2,9 +2,9 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
-from mcp.knowledge_indexing import contextual_chunks, lexical_score
-from mcp.knowledge_base import KnowledgeBase
-from mcp.tool_manager import MCPToolManager, ToolResult
+from tooling.knowledge_indexing import contextual_chunks, lexical_score
+from tooling.knowledge_base import KnowledgeBase
+from tooling.tool_manager import MCPToolManager, ToolResult
 
 
 class KnowledgeIndexingTests(unittest.TestCase):
@@ -166,8 +166,8 @@ class RetrievalPipelineTests(unittest.IsolatedAsyncioTestCase):
         response = SimpleNamespace(content=[])
         create = AsyncMock(return_value=response)
         with (
-            patch("mcp.tool_manager.create_message", create),
-            patch("mcp.tool_manager.extract_text", return_value='["河北工业大学住宿费标准"]'),
+            patch("tooling.tool_manager.create_message", create),
+            patch("tooling.tool_manager.extract_text", return_value='["河北工业大学住宿费标准"]'),
         ):
             queries = await self.manager.rewrite_query(
                 "住宿费", scope="搜索河北工业大学官方本科招生知识库",
@@ -237,8 +237,8 @@ class RetrievalPipelineTests(unittest.IsolatedAsyncioTestCase):
     async def test_rerank_filters_low_scores_and_can_return_empty(self):
         response = SimpleNamespace(content=[])
         with (
-            patch("mcp.tool_manager.create_message", AsyncMock(return_value=response)),
-            patch("mcp.tool_manager.extract_text", return_value='[{"index":0,"score":4.9}]'),
+            patch("tooling.tool_manager.create_message", AsyncMock(return_value=response)),
+            patch("tooling.tool_manager.extract_text", return_value='[{"index":0,"score":4.9}]'),
         ):
             result = await self.manager._rerank("计算机", [{"content": "数字交互设计"}], 5)
 
@@ -247,9 +247,9 @@ class RetrievalPipelineTests(unittest.IsolatedAsyncioTestCase):
     async def test_rerank_keeps_relevant_results_with_score(self):
         response = SimpleNamespace(content=[])
         with (
-            patch("mcp.tool_manager.create_message", AsyncMock(return_value=response)),
+            patch("tooling.tool_manager.create_message", AsyncMock(return_value=response)),
             patch(
-                "mcp.tool_manager.extract_text",
+                "tooling.tool_manager.extract_text",
                 return_value='[{"index":0,"score":3.0},{"index":1,"score":9.2}]',
             ),
         ):
@@ -266,8 +266,8 @@ class RetrievalPipelineTests(unittest.IsolatedAsyncioTestCase):
         response = SimpleNamespace(content=[])
         create = AsyncMock(return_value=response)
         with (
-            patch("mcp.tool_manager.create_message", create),
-            patch("mcp.tool_manager.extract_text", return_value='[{"index":0,"score":9.0}]'),
+            patch("tooling.tool_manager.create_message", create),
+            patch("tooling.tool_manager.extract_text", return_value='[{"index":0,"score":9.0}]'),
         ):
             await self.manager._rerank(
                 "住宿费",

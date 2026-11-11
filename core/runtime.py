@@ -3,6 +3,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 import json
+import math
+import os
 from pathlib import Path
 import time
 import uuid
@@ -25,6 +27,8 @@ class LeaseLost(RuntimeError):
 
 
 CURRENT_RUN: ContextVar['RunContext | None'] = ContextVar('hellohebut_run', default=None)
+PROGRESS_SINK: ContextVar[object] = ContextVar('hellohebut_progress', default=None)
+RUN_MODE: ContextVar[str] = ContextVar('hellohebut_mode', default='interactive')
 
 
 @dataclass
@@ -42,6 +46,17 @@ class RunContext:
     knowledge_snapshots: dict = field(default_factory=dict, repr=False)
     memory_revision: int | None = field(default=None, repr=False)
     allow_long_term: bool = True
+    usage_sink: object = field(default=None, repr=False)
+    mode: str = field(default_factory=lambda: RUN_MODE.get())
+
+    async def persist_usage(self):
+        if self.usage_sink:
+            await self.usage_sink(self)
+
+    async def emit_progress(self, stage):
+        sink = PROGRESS_SINK.get()
+        if sink:
+            await sink(stage)
 
     def check_deadline(self):
         if time.monotonic() - self.started >= self.timeout_s:
@@ -57,7 +72,7 @@ class RunContext:
     @contextmanager
     def span(self, name: str, **metadata):
         started = time.monotonic()
-        event = {'stage': name, **metadata}
+        event = {'stage': name, 'offset_ms': round((started - self.started) * 1000, 2), **metadata}
         try:
             self.check_deadline()
             yield event
@@ -71,13 +86,26 @@ class RunContext:
             self.events.append(event)
 
     def report(self, status: str):
+        cost = None
+        try:
+            input_rate = float(os.getenv('V2_INPUT_PRICE_PER_MILLION', ''))
+            output_rate = float(os.getenv('V2_OUTPUT_PRICE_PER_MILLION', ''))
+            if all(math.isfinite(v) and v >= 0 for v in (input_rate, output_rate)):
+                cost = {'amount': round((self.input_tokens * input_rate + self.output_tokens * output_rate) / 1_000_000, 8),
+                        'currency': os.getenv('V2_PRICE_CURRENCY', 'CNY'), 'basis': 'configured_token_rates',
+                        'excludes': 'cache discounts, provider adjustments and unreported interrupted calls'}
+        except ValueError:
+            pass
         return {'schema_version': 1, 'run_id': self.run_id, 'status': status,
+                'mode': self.mode if self.allow_long_term else 'evaluation',
                 'latency_ms': round((time.monotonic() - self.started) * 1000, 2),
                 'tool_calls': self.tool_calls, 'model_calls': self.model_calls,
-                'input_tokens': self.input_tokens, 'output_tokens': self.output_tokens,
+                'input_tokens': self.input_tokens, 'output_tokens': self.output_tokens, 'estimated_cost': cost,
                 'events': self.events}
 
     def save(self, folder: str | None, status: str):
+        from monitor.tracing import record_trace
+        record_trace(self.report(status))
         if folder:
             path = Path(folder)
             path.mkdir(parents=True, exist_ok=True)

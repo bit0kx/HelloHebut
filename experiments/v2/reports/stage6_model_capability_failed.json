@@ -1,0 +1,29 @@
+{
+  "mode": "live_model_capability_probe",
+  "model": "deepseek-v4-pro",
+  "tool_use": true,
+  "tool_result_round_trip": true,
+  "structured_role_json": false,
+  "passed": false,
+  "limitations": "One synthetic two-request protocol probe; not a quality benchmark or provider-wide guarantee.",
+  "fallback_configuration": {
+    "HELLOHEBUT_TOOL_LOOP": "false",
+    "HELLOHEBUT_ROLE_MODE": "single"
+  },
+  "error_type": "ValueError",
+  "usage": {
+    "model_calls": 2,
+    "tool_calls": 1,
+    "input_tokens": 194,
+    "output_tokens": 77
+  },
+  "commit": "container",
+  "source_hashes": {
+    "experiments/v2/scripts/role_ablation.py": "460fdd4daada0d26a69a0e3ba8b8c42cd4714db76ecc2ed400baad7aec27c335",
+    "agents/agent_orchestrator.py": "c02d51f446c3a357bfdf82f139d4151173ab7a90d27478bd54bcb12e07c3c95a",
+    "agents/composer.py": "e2e6bc6b0c1d1f8d4da4f38e07d881c9e3ec21ebe33675121a077f6901019de0",
+    "agents/read_tools.py": "519217e91f544e2cc8087938768301616084e708fc351261794f02bfa6f549e7",
+    "core/context_budget.py": "2ee319f4bde1ec799ee42a06ea9afe6dca600811d962690e5becfef675371d0c",
+    "core/skill_loader.py": "a3752fce72a139bcb4979e209a3d1b3ce3bc7a194e426a32823e14dc0448a806"
+  }
+}

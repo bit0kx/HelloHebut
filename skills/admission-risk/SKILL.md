@@ -1,11 +1,11 @@
 ---
-name: 录取数据与风险分析规范
+name: admission-risk
 description: 分数位次、历年数据、招生计划、冲稳保和候选专业分析
-keywords:
-agents: risk
-enabled: true
+metadata:
+  version: "2.0.0"
+  agents: "risk"
+  tests: "test_skills_dynamic.py"
 ---
-
 # 录取数据与风险分析规范
 
 ## 最低信息要求

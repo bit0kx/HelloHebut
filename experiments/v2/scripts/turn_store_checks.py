@@ -333,7 +333,7 @@ if __name__ == '__main__':
                                   for folder in ('memory', 'core', 'api')
                                   for p in sorted((root / folder).rglob('*')) if p.suffix in {'.py', '.sql'}}
         report['script_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
-        target = root / 'experiments/v2/reports/stage5_turns.json'
+        target = root / 'experiments/v2/reports/stage6_turns.json'
         target.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         print(json.dumps({k: report[k] for k in ('passed', 'total', 'mysql')}))
         raise SystemExit(0 if report['passed'] == report['total'] else 1)

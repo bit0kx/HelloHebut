@@ -13,9 +13,9 @@ import uuid
 def inside(reference):
     import chromadb
     from core.runtime import CURRENT_RUN, RunContext
-    from mcp.knowledge_base import KnowledgeBase
-    from mcp.knowledge_catalog import KnowledgeCatalog
-    from mcp.lexical_retrieval import BM25Cache
+    from tooling.knowledge_base import KnowledgeBase
+    from tooling.knowledge_catalog import KnowledgeCatalog
+    from tooling.lexical_retrieval import BM25Cache
     client = chromadb.HttpClient(host='chromadb', port=8000,
                                 settings=chromadb.Settings(anonymized_telemetry=False))
     name = 'v2_acceptance_' + uuid.uuid4().hex
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         report = json.loads(output.strip().splitlines()[-1])
         report['dataset_sha256'] = hashlib.sha256(dataset.encode()).hexdigest()
         report['source_sha256'] = {name: hashlib.sha256((root/name).read_bytes()).hexdigest()
-                                  for name in ('mcp/knowledge_base.py', 'mcp/lexical_retrieval.py')}
+                                  for name in ('tooling/knowledge_base.py', 'tooling/lexical_retrieval.py')}
         (root / args.report).write_text(
             json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
         print(json.dumps({k: report[k] for k in ('storage_passed','storage_total','recall_at_8','ndcg_at_8')}))

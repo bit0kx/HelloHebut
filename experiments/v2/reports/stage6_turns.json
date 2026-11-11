@@ -1,0 +1,83 @@
+{
+  "mode": "real_mysql_redis_isolated_ledger",
+  "mysql": "8.4.13",
+  "checks": [
+    {
+      "check": "atomic_turn_state_and_provenance",
+      "passed": true
+    },
+    {
+      "check": "commit_failure_rolls_back_entire_turn",
+      "passed": true
+    },
+    {
+      "check": "concurrent_duplicate_and_request_binding",
+      "passed": true
+    },
+    {
+      "check": "expired_and_replaced_lease_fenced",
+      "passed": true
+    },
+    {
+      "check": "computed_checkpoint_reused_by_fresh_service",
+      "passed": true
+    },
+    {
+      "check": "lost_response_after_commit_replays_once",
+      "passed": true
+    },
+    {
+      "check": "expired_or_stale_checkpoint_recomputes",
+      "passed": true
+    },
+    {
+      "check": "redis_migration_and_clear_tombstone",
+      "passed": true
+    },
+    {
+      "check": "summary_cas_preserves_new_turn_and_rejects_stale",
+      "passed": true
+    },
+    {
+      "check": "summary_failure_keeps_original_messages",
+      "passed": true
+    },
+    {
+      "check": "owner_isolation_and_redis_working_data_loss",
+      "passed": true
+    },
+    {
+      "check": "clear_removes_uncommitted_checkpoint",
+      "passed": true
+    }
+  ],
+  "passed": 12,
+  "total": 12,
+  "limitations": "Synthetic functional checks with real MySQL transactions. Fresh service recovery starts after answer computation; no internal retrieval-node or LangGraph recovery claim. Full database/application restart is validated separately.",
+  "source_sha256": {
+    "memory/conversation_memory.py": "bf26dbf7f3f3f330996e4b2e6dccfa8ef301f16ee74b4908c17d06f2dacd038b",
+    "memory/fact_store.py": "a63eedcc5afce52d9ff61097b059f72b26671f6a2e9577c3231fa6f75e87288b",
+    "memory/job_store.py": "aa679dacf0daeb2ebc74513a9822ae473cfb9cb813b27c1072952358d8d1fed9",
+    "memory/migrations/001_facts.sql": "010d14926c2d969bc5bd9ae9e652cb5438a45acf8177075135d759de6108374a",
+    "memory/migrations/002_turns.sql": "4fa2e06bac91d7dad8fdc338ab9b99d2f0a3ee944748a38c4c8c35aaaa732e9b",
+    "memory/migrations/003_graph.sql": "b96e3150ab5b180f728cc8921dbce1afd72d63ced153c84ffa2d3044453cfa2f",
+    "memory/migrations/004_jobs.sql": "8b309fc77c2957cbf300d91935a41b8ee005c5d056d6d7c4522f3e50d3f67715",
+    "memory/mysql_database.py": "a78df2c42c58e79403d7060c1c511d350e46f54bd18b45d63c3fcfef7572045d",
+    "memory/mysql_turn_store.py": "baee36c693aa3c05c37eb143f42a76edcb567b604244044d2ce3e5b5e5eaa862",
+    "memory/preferences.py": "a801d4dccc062ea0c60ea40b5eead5dc4bdf6adbd233fb002534df1c2f7887a7",
+    "memory/turn_store.py": "b18a293088c88efb8d1f5463a45db67eb83c20417d03a7f101cab4647d0adba1",
+    "core/admission_answer.py": "e6c4bad50c040dba7646f3fc50a63d71a8ed6212f67a4a52841f5a08753774b4",
+    "core/chat_service.py": "c09a5f9b087a089654d7006e48c270b87d2346c1f669993e1ae0bc1848ac5c8d",
+    "core/context_budget.py": "2ee319f4bde1ec799ee42a06ea9afe6dca600811d962690e5becfef675371d0c",
+    "core/contracts.py": "bb64261a2b8ac2dd1d6949b6976959677e764d5f554f9a6d13d265bc034978a8",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "c4391e732bd18c59c0db820bf4d61b8e59732409c0ef52dc317380833d967e53",
+    "core/runtime.py": "45d95e9579e3639de4cc3a0427ecde1398ba2ff0fab4f12c54feb7c43e538686",
+    "core/skill_loader.py": "a3752fce72a139bcb4979e209a3d1b3ce3bc7a194e426a32823e14dc0448a806",
+    "core/task_state.py": "7301b80e6b323c2167b18de171bea4833118a414f9f3a7142b0e1cec18ec44b8",
+    "api/main.py": "15860cd6ff86ddc7821d53bf9c93c4e23043084abf269931f52ee3a5f2f59d88",
+    "api/memory_routes.py": "7e335eaa2e233559a81bd001f0ef367883fb5780154f431d135ed1bd69767ba2",
+    "api/task_routes.py": "ba5e6c6bfb14941cf1870cc77499fde2a813829467cdf66c7cfa5775037e026c"
+  },
+  "script_sha256": "b2c725c61520a9593e6c40efa95cc10373c75ba8d019575223b182b48712228c"
+}

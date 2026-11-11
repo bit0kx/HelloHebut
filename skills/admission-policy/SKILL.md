@@ -1,11 +1,11 @@
 ---
-name: 招生政策解释规范
+name: admission-policy
 description: 招生章程、投档录取、调剂退档、体检选科、收费和资助规则
-keywords:
-agents: policy
-enabled: true
+metadata:
+  version: "2.0.0"
+  agents: "policy"
+  tests: "test_skills_dynamic.py"
 ---
-
 # 招生政策解释规范
 
 ## 处理范围

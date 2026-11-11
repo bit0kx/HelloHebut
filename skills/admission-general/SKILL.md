@@ -1,11 +1,11 @@
 ---
-name: 招生通用与校园咨询规范
+name: admission-general
 description: 学校概况、校区、校园生活、澄清、兜底和官方渠道说明
-keywords:
-agents: general
-enabled: true
+metadata:
+  version: "2.0.0"
+  agents: "general"
+  tests: "test_skills_dynamic.py"
 ---
-
 # 招生通用与校园咨询规范
 
 ## 处理范围

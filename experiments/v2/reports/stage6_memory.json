@@ -1,0 +1,75 @@
+{
+  "mode": "real_mysql_redis_isolated_tables",
+  "mysql": "8.4.13",
+  "checks": [
+    {
+      "check": "source_and_confirmation",
+      "passed": true
+    },
+    {
+      "check": "versioned_correction",
+      "passed": true
+    },
+    {
+      "check": "concurrent_cas_one_winner",
+      "passed": true
+    },
+    {
+      "check": "idempotency_conflict",
+      "passed": true
+    },
+    {
+      "check": "delete_and_old_replay_no_resurrection",
+      "passed": true
+    },
+    {
+      "check": "expiry_excluded",
+      "passed": true
+    },
+    {
+      "check": "transaction_failure_rolls_back",
+      "passed": true
+    },
+    {
+      "check": "reconnect_preserves_facts",
+      "passed": true
+    },
+    {
+      "check": "owner_isolation",
+      "passed": true
+    },
+    {
+      "check": "thirty_turn_sequence",
+      "passed": true
+    },
+    {
+      "check": "http_chat_confirmation_and_delete",
+      "passed": true
+    }
+  ],
+  "passed": 11,
+  "total": 11,
+  "limitations": "Functional assertions and synthetic 30-turn sequence, not human-labelled memory precision. Reconnect tested; full process restart is checked separately.",
+  "source_sha256": {
+    "memory/conversation_memory.py": "bf26dbf7f3f3f330996e4b2e6dccfa8ef301f16ee74b4908c17d06f2dacd038b",
+    "memory/fact_store.py": "a63eedcc5afce52d9ff61097b059f72b26671f6a2e9577c3231fa6f75e87288b",
+    "memory/job_store.py": "aa679dacf0daeb2ebc74513a9822ae473cfb9cb813b27c1072952358d8d1fed9",
+    "memory/mysql_database.py": "a78df2c42c58e79403d7060c1c511d350e46f54bd18b45d63c3fcfef7572045d",
+    "memory/mysql_turn_store.py": "baee36c693aa3c05c37eb143f42a76edcb567b604244044d2ce3e5b5e5eaa862",
+    "memory/preferences.py": "a801d4dccc062ea0c60ea40b5eead5dc4bdf6adbd233fb002534df1c2f7887a7",
+    "memory/turn_store.py": "b18a293088c88efb8d1f5463a45db67eb83c20417d03a7f101cab4647d0adba1",
+    "core/admission_answer.py": "e6c4bad50c040dba7646f3fc50a63d71a8ed6212f67a4a52841f5a08753774b4",
+    "core/chat_service.py": "c09a5f9b087a089654d7006e48c270b87d2346c1f669993e1ae0bc1848ac5c8d",
+    "core/context_budget.py": "2ee319f4bde1ec799ee42a06ea9afe6dca600811d962690e5becfef675371d0c",
+    "core/contracts.py": "bb64261a2b8ac2dd1d6949b6976959677e764d5f554f9a6d13d265bc034978a8",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "c4391e732bd18c59c0db820bf4d61b8e59732409c0ef52dc317380833d967e53",
+    "core/runtime.py": "45d95e9579e3639de4cc3a0427ecde1398ba2ff0fab4f12c54feb7c43e538686",
+    "core/skill_loader.py": "a3752fce72a139bcb4979e209a3d1b3ce3bc7a194e426a32823e14dc0448a806",
+    "core/task_state.py": "7301b80e6b323c2167b18de171bea4833118a414f9f3a7142b0e1cec18ec44b8",
+    "api/main.py": "15860cd6ff86ddc7821d53bf9c93c4e23043084abf269931f52ee3a5f2f59d88",
+    "api/memory_routes.py": "7e335eaa2e233559a81bd001f0ef367883fb5780154f431d135ed1bd69767ba2",
+    "api/task_routes.py": "ba5e6c6bfb14941cf1870cc77499fde2a813829467cdf66c7cfa5775037e026c"
+  },
+  "migration_sha256": "010d14926c2d969bc5bd9ae9e652cb5438a45acf8177075135d759de6108374a"
+}

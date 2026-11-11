@@ -1,0 +1,30 @@
+{
+  "mode": "live_http_through_nginx",
+  "checks": [
+    {
+      "check": "durable_admission_idempotency_and_owner_isolation",
+      "passed": true
+    },
+    {
+      "check": "nginx_sse_progress_final_and_reconnect",
+      "passed": true,
+      "stages": [
+        "running",
+        "running",
+        "route",
+        "required_tools",
+        "finalize",
+        "commit"
+      ],
+      "verified": true,
+      "state_available": true
+    }
+  ],
+  "passed": 2,
+  "total": 2,
+  "source_sha256": {
+    "api/task_routes.py": "ba5e6c6bfb14941cf1870cc77499fde2a813829467cdf66c7cfa5775037e026c",
+    "memory/job_store.py": "aa679dacf0daeb2ebc74513a9822ae473cfb9cb813b27c1072952358d8d1fed9"
+  },
+  "limitations": "Two functional checks, not a statistical latency or answer-quality benchmark."
+}

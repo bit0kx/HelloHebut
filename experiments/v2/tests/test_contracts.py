@@ -5,9 +5,9 @@ from core.contracts import TaskState, EvidenceVerdict
 from core.task_state import merge_state, needs_admission
 from core.admission_answer import numeric_only
 from core.runtime import CURRENT_RUN, RunContext, BudgetExceeded
-from mcp.tool_manager import MCPToolManager, Tool
-from mcp.knowledge_indexing import split_text
-from mcp.knowledge_base import KnowledgeBase
+from tooling.tool_manager import MCPToolManager, Tool
+from tooling.knowledge_indexing import split_text
+from tooling.knowledge_base import KnowledgeBase
 
 
 class StateTests(unittest.TestCase):

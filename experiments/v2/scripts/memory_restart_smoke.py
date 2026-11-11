@@ -95,6 +95,6 @@ if __name__ == '__main__':
                              'replayed_receipt_has_original_trace','one_committed_turn'],
                   'limitations': 'Isolated fixtures survive a real MySQL/application restart. Recovery is limited to the '
                                  'post-generation boundary; not LangGraph or internal retrieval-node recovery.'}
-        (ROOT/'experiments/v2/reports/stage5_restart.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
+        (ROOT/'experiments/v2/reports/stage6_restart.json').write_text(json.dumps(report, indent=2)+'\n', encoding='utf-8')
         print(json.dumps(report))
     raise SystemExit(0 if report['passed'] else 1)

@@ -55,6 +55,7 @@ _skill_manager = None
 _chat_service = None
 _admission_store = None
 _tool_managers = []
+_job_store = None
 
 
 def _anthropic_cfg() -> Dict[str, Any]:
@@ -74,6 +75,7 @@ def _anthropic_cfg() -> Dict[str, Any]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _orchestrator, _memory, _tool_manager, _monitor, _evaluator, _skill_manager, _chat_service, _admission_store
+    global _job_store
 
     print(BANNER, flush=True)
 
@@ -81,9 +83,9 @@ async def lifespan(app: FastAPI):
     from core.intent_recognizer import IntentRecognizer
     from core.chat_service import ChatService
     from evaluation.evaluator import EndToEndEvaluator
-    from mcp.admission_data import AdmissionDataStore
-    from mcp.knowledge_base import KnowledgeBase
-    from mcp.tool_manager import MCPToolManager, Tool
+    from tooling.admission_data import AdmissionDataStore
+    from tooling.knowledge_base import KnowledgeBase
+    from tooling.tool_manager import MCPToolManager, Tool
     from memory.conversation_memory import MemoryManager
     from monitor.performance_monitor import PerformanceMonitor
     from core.skill_loader import SkillManager
@@ -114,6 +116,8 @@ async def lifespan(app: FastAPI):
         base_url=cfg.get("base_url"),
         model=cfg["model"],
         skill_manager=_skill_manager,
+        role_mode=os.getenv('HELLOHEBUT_ROLE_MODE', 'single'),
+        tool_loop=os.getenv('HELLOHEBUT_TOOL_LOOP', 'false').lower() == 'true',
     )
 
     # MySQL owns both preferences and atomic chat turns; Redis still provides sessions.
@@ -228,8 +232,9 @@ async def lifespan(app: FastAPI):
         agentic_rag=AgenticRAG(_tool_manager) if agentic_enabled else None,
         trace_dir=os.getenv('V2_TRACE_DIR', str(pathlib.Path(_ROOT) / 'experiments/v2/traces/chat')),
         timeout_s=float(os.getenv('V2_CHAT_TIMEOUT_S', '50')),
+        graph_enabled=os.getenv('HELLOHEBUT_CHAT_GRAPH', 'true').lower() == 'true',
     )
-    _memory.maintenance.start()
+    _orchestrator.bind_tools(_tool_manager)
 
     # 性能监控（可选启动 Prometheus）
     prom_port = int(os.getenv("PROMETHEUS_PORT", "0")) or None
@@ -249,13 +254,24 @@ async def lifespan(app: FastAPI):
         base_url=cfg.get("base_url"),
         model=cfg["model"],
         skill_manager=_skill_manager,
+        role_mode=os.getenv('HELLOHEBUT_ROLE_MODE', 'single'),
+        tool_loop=os.getenv('HELLOHEBUT_TOOL_LOOP', 'false').lower() == 'true',
     )
     eval_tool_manager = build_tool_manager()
+    eval_orchestrator.bind_tools(eval_tool_manager)
+    import copy
+    eval_memory = copy.copy(_memory)
+    eval_memory.facts = None
+    eval_memory.turns = MySQLTurnStore(os.getenv('REDIS_URL', 'redis://redis:6379/0'), database=MySQLDatabase(
+        os.getenv('V2_FACT_DATABASE_URL', ''), namespace='hellohebut_evaluation_v2'))
+    await eval_memory.turns.initialize()
+    eval_memory.maintenance = None
     _tool_managers[:] = [_tool_manager, eval_tool_manager]
     eval_chat_service = ChatService(
-        eval_orchestrator, _memory, eval_tool_manager, recognizer=recognizer,
+        eval_orchestrator, eval_memory, eval_tool_manager, recognizer=recognizer,
         agentic_rag=AgenticRAG(eval_tool_manager) if agentic_enabled else None,
         trace_dir=str(pathlib.Path(_ROOT) / 'experiments/v2/traces/evaluation'),
+        graph_enabled=os.getenv('HELLOHEBUT_CHAT_GRAPH', 'true').lower() == 'true',
     )
     _evaluator = EndToEndEvaluator(
         chat_service=eval_chat_service,
@@ -266,9 +282,62 @@ async def lifespan(app: FastAPI):
         baseline_path=os.getenv("V2_EVAL_BASELINE_PATH", str(pathlib.Path(_ROOT) / 'experiments/v2/reports/live/baseline.json')),
     )
 
+    from memory.job_store import JobStore, DurableWorkers
+    from monitor.tracing import TraceExporter
+    from core.runtime import PROGRESS_SINK
+    _job_store = JobStore(turns.db)
+    _job_store.turns = turns
+    await _job_store.initialize()
+    turns.maintenance_outbox = _job_store
+
+    class OutboxMaintenance:
+        durable = True
+        def submit(self, *args, **kwargs):
+            return True  # Already written atomically by MySQLTurnStore.commit.
+        async def close(self):
+            pass
+    _memory.maintenance = OutboxMaintenance()
+
+    async def execute_chat(job):
+        async def progress(stage):
+            await _job_store.event(job, stage)
+        token = PROGRESS_SINK.set(progress)
+        try:
+            payload = job['payload']
+            result = await _chat_service.handle(payload['message'], payload['user_id'], payload['conv_id'],
+                                                client_request_id=payload['client_request_id'])
+            return asdict(result)
+        finally:
+            PROGRESS_SINK.reset(token)
+
+    async def execute_maintenance(job):
+        payload = job['payload']
+        # Serialize provenance check + candidate creation with clear. Summary uses
+        # its existing epoch/prefix CAS and can run after releasing this short lease.
+        async with turns.guard(payload['user_id'], payload['conv_id'], lease_s=20):
+            async with asyncio.timeout(10):
+                await _job_store.renew(job)
+                receipt = await turns.receipt(payload['user_id'], payload['conv_id'], payload['request_id'], payload['message'])
+                if not receipt:
+                    return {'maintained': False, 'reason': 'source_cleared'}
+                await _memory.capture_preferences(payload['user_id'], payload['conv_id'], payload['request_id'], payload['message'])
+        await _memory.maintain(payload['user_id'], payload['conv_id'])
+        return {'maintained': True}
+
+    async def execute_evaluation(job):
+        return await run_eval(EvalRunInput.model_validate(job['payload']))
+
+    workers = DurableWorkers(_job_store, {'chat': execute_chat, 'maintenance': execute_maintenance,
+                                        'evaluation': execute_evaluation}, workers=int(os.getenv('V2_WORKERS', '2')))
+    workers.start()
+    exporter = TraceExporter()
+    exporter.start()
     logger.info("河北工业大学本科报考咨询服务已就绪")
     yield
 
+    await workers.close()
+    await exporter.close()
+    await eval_memory.turns.close()
     await _monitor.stop()
     await _memory.close()
     if kb._catalog:
@@ -347,6 +416,27 @@ async def health():
     return {"status": "ok", "agents": _orchestrator.get_stats()}
 
 
+@app.get('/live')
+async def live():
+    return {'status': 'alive'}
+
+
+@app.get('/ready')
+async def ready():
+    if not _memory or not _tool_manager or not _job_store:
+        raise HTTPException(503, '服务正在初始化')
+    try:
+        async with asyncio.timeout(4):
+            await _memory.turns.client.ping()
+            async with _memory.turns.db.connection() as conn:
+                await conn.execute('SELECT 1')
+            kb = _tool_manager._tools['knowledge_search'].handler.__self__
+            await asyncio.to_thread(kb._collection.count)
+    except Exception as exc:
+        raise HTTPException(503, '依赖服务尚未就绪') from exc
+    return {'status': 'ready', 'dependencies': ['mysql','redis','chroma']}
+
+
 @app.get("/skills", tags=["Skills"])
 async def skills_summary():
     """查看当前已加载的 Skills，便于确认热加载结果和排查解析错误。"""
@@ -396,11 +486,29 @@ async def chat(req: ChatRequest, authorization: Optional[str] = Header(default=N
         raise HTTPException(409, str(exc)) from exc
     except ConversationBusy as exc:
         raise HTTPException(409, str(exc), headers={'Retry-After': '3'}) from exc
-    except (asyncio.TimeoutError, BudgetExceeded) as exc:
-        raise HTTPException(504, '本轮超时或预算耗尽，请使用相同 client_request_id 重试') from exc
+    except BudgetExceeded as exc:
+        raise HTTPException(422, '本轮调用预算已耗尽，请缩小问题范围并新建请求') from exc
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(504, '本轮超时，可用相同 client_request_id 恢复；已消耗调用额度不会重置') from exc
     except LeaseLost as exc:
         raise HTTPException(409, str(exc)) from exc
     return ChatResponse(**asdict(result))
+
+
+@app.delete('/conversations/{conv_id}', tags=['会话'])
+async def clear_conversation(conv_id: str, authorization: Optional[str] = Header(default=None)):
+    from core.runtime import ConversationBusy, LeaseLost
+    if _memory is None:
+        raise HTTPException(503, '服务未就绪')
+    token = authorization[7:] if authorization and authorization.startswith('Bearer ') else ''
+    user = await _memory.turns.session_user(token)
+    if not user:
+        raise HTTPException(401, '请先获取有效会话令牌')
+    try:
+        await _memory.clear_conversation(user, conv_id)
+    except (ConversationBusy, LeaseLost) as exc:
+        raise HTTPException(409, '会话正在处理，请稍后重试清空', headers={'Retry-After': '3'}) from exc
+    return {'cleared': True, 'conv_id': conv_id}
 
 
 @app.get("/monitor")
@@ -613,7 +721,7 @@ async def knowledge_stats():
 
 
 async def publish_knowledge(kb, documents):
-    from mcp.knowledge_catalog import PublicationConflict
+    from tooling.knowledge_catalog import PublicationConflict
     try:
         normalized = [DocInput.model_validate(item).model_dump(exclude_none=True) for item in documents]
         if not normalized:
@@ -634,7 +742,7 @@ async def rollback_knowledge(body: RollbackInput, _: None = Depends(require_admi
     tool = _tool_manager._tools.get('knowledge_search') if _tool_manager else None
     if tool is None:
         raise HTTPException(503, '知识库未初始化')
-    from mcp.knowledge_catalog import PublicationConflict
+    from tooling.knowledge_catalog import PublicationConflict
     try:
         generation = await asyncio.to_thread(tool.handler.__self__.rollback, body.generation)
     except PublicationConflict as exc:
@@ -673,11 +781,23 @@ async def run_eval(body: Optional[EvalRunInput] = None, _: None = Depends(requir
     else:
         dialog_cases = DEFAULT_DIALOG_CASES
 
-    report = await _evaluator.run(
-        intent_cases=intent_cases,
-        dialog_cases=dialog_cases,
-    )
+    from core.runtime import RUN_MODE
+    from evaluation.manifest import benchmark_manifest
+    async def knowledge_manifest():
+        tool = _tool_manager._tools.get('knowledge_search') if _tool_manager else None
+        backend = getattr(getattr(tool, 'handler', None), '__self__', None)
+        if not backend or not hasattr(backend, 'publication_status'):
+            return None
+        return await asyncio.to_thread(backend.publication_status)
+    knowledge_before = await knowledge_manifest()
+    mode_token = RUN_MODE.set('evaluation')
+    try:
+        report = await _evaluator.run(intent_cases=intent_cases, dialog_cases=dialog_cases)
+    finally:
+        RUN_MODE.reset(mode_token)
     return {
+        **benchmark_manifest(intent_cases, dialog_cases, knowledge_before=knowledge_before,
+                             knowledge_after=await knowledge_manifest()),
         "suite_version":   report.suite_version,
         "pass_rate":       report.pass_rate,
         "total":           report.total,
@@ -699,61 +819,26 @@ async def run_eval(body: Optional[EvalRunInput] = None, _: None = Depends(requir
     }
 
 
+from api.task_routes import build_task_router
+app.include_router(build_task_router(lambda: (_memory, _job_store), require_admin, EvalRunInput))
+
 # ── 交互式 CLI ────────────────────────────────────────────────────────────────
 async def _cli():
     print(BANNER)
     print("河北工业大学本科报考咨询 CLI — 输入 quit 退出\n")
 
-    from agents.agent_orchestrator import AgentOrchestrator, Request
-    from memory.conversation_memory import MemoryManager, MsgRole
-    from core.skill_loader import SkillManager
-
-    cfg = _anthropic_cfg()
-    skill_manager = SkillManager(
-        root_dir=os.getenv("HELLOHEBUT_SKILLS_DIR", str(pathlib.Path(_ROOT) / "skills")),
-        max_prompt_chars=int(os.getenv("HELLOHEBUT_SKILLS_MAX_PROMPT_CHARS", "5000")),
-    )
-    skill_manager.load()
-    orch = AgentOrchestrator(
-        api_key=cfg["api_key"],
-        base_url=cfg.get("base_url"),
-        model=cfg["model"],
-        skill_manager=skill_manager,
-    )
-    mem  = MemoryManager(
-        redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"),
-        chroma_host=os.getenv("CHROMA_HOST", "localhost"),
-        chroma_port=int(os.getenv("CHROMA_PORT", "8000")),
-        chroma_path=os.getenv("CHROMA_PERSIST_DIRECTORY", "/tmp/chroma"),
-        api_key=cfg["api_key"],
-        base_url=cfg.get("base_url"),
-        model=cfg["model"],
-    )
-
-    user_id, conv_id = "cli_user", str(uuid.uuid4())
-
-    while True:
-        try:
-            msg = input("你: ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\n再见 ʕ•ᴥ•ʔ")
-            break
-        if not msg or msg.lower() in ("quit", "exit", "退出"):
-            print("再见 ʕ•ᴥ•ʔ")
-            break
-
-        ctx = await mem.get_context(user_id, conv_id, query=msg)
-        history = [
-            {"role": m.role.value, "content": m.content}
-            for m in ctx.recent_messages[-5:]
-        ] if ctx.recent_messages else None
-        req = Request(message=msg, user_id=user_id, conv_id=conv_id, context=ctx.to_prompt_text(), history=history)
-        result = await orch.run(req)
-
-        await mem.add_message(user_id, conv_id, MsgRole.USER, msg)
-        await mem.add_message(user_id, conv_id, MsgRole.ASSISTANT, result.response)
-
-        print(f"\n河工大报考助手 [{result.agent_type.value}]: {result.response}\n")
+    async with lifespan(app):
+        user_id, conv_id = "cli_" + uuid.uuid4().hex, str(uuid.uuid4())
+        while True:
+            try:
+                msg = (await asyncio.to_thread(input, "You: ")).strip()
+            except (EOFError, KeyboardInterrupt):
+                break
+            if not msg or msg.lower() in ("quit", "exit"):
+                break
+            result = await _chat_service.handle(
+                msg, user_id=user_id, conv_id=conv_id, client_request_id=uuid.uuid4().hex)
+            print(f"\n[{result.agent_type}]: {result.response}\n")
 
 
 if __name__ == "__main__":

@@ -2,9 +2,9 @@
 
 日期：2026-11-11。状态：在 `v2` 分阶段实施，已交付范围与实测结果见 [v2 实施与验证指南](experiments/v2/README.md)；本文仍是完整设计目标，预算、指标和工期不代表全部已实现或已达标。
 
-阶段简报单独维护在 [v2 阶段更新](experiments/v2/STAGE_UPDATES.md)。每批工作完成后更新简报并暂停供用户审查，再根据反馈继续；本文不重复堆叠实施日志。
+阶段简报单独维护在 [v2 阶段更新](experiments/v2/STAGE_UPDATES.md)。按用户最新要求，本批连续完成剩余核心工程修改并统一测试后交付审查；本文不重复堆叠实施日志。
 
-按用户最新要求，关系数据库统一改用 MySQL。第 3 阶段的偏好来源、确认、更正/删除/过期与前端管理保留；本批推进第 4 阶段的 MySQL 整轮账本和已生成答案恢复提交，统一测试结果见阶段简报。当前 Checkpoint 仅位于答案计算完成之后，LangGraph 节点级恢复仍待实现。独立人工检索真值、中文 Embedding 对照及标准全新镜像构建仍待补齐。
+关系数据库统一使用 MySQL。当前已落地 LangGraph 六节点恢复、MySQL 任务与维护 outbox、前端 SSE、角色/Composer、渐进 Skills、只读标准 MCP、元数据追踪和实验工具。中文 Embedding 对照已完成，生产索引保持原配置。独立人工真值/Judge 校准、外部 Langfuse、页面目测及标准全新镜像构建仍待验收；不将功能通过视为全部质量目标达标。详见 [第六批报告](experiments/v2/README.md)。
 
 依据：[项目技术现状](TECHNICAL_DESIGN.md)、[主要流程](main_flow.md)、[Agent 调研交接材料](agent_research_codex_context_2026-11.txt)，以及本地 EchoMind Python 源码和 Java 版中经筛选的可迁移设计。调研材料已替代无法抓取正文的 ChatGPT 分享链接。方案基于 HelloHebut 提交 `d650853`，不重复现有部署说明和算法细节。
 
@@ -26,7 +26,7 @@
 
 ## 2. 从现状出发，借鉴 EchoMind 的哪些部分
 
-下表中的“已有”来自源码核对；调研材料对 HelloHebut 的概括不能替代实现事实。Java 版仅保留混合检索、回答校验、上下文预算三项可借鉴方法，均在 HelloHebut 现有 Python 技术栈中实现。
+下表记录方案制定时的 v1 基线与差距，“当前实现”指该基线；已交付 v2 状态以页首指南为准。Java 版仅保留混合检索、回答校验、上下文预算三项可借鉴方法，均在 Python 技术栈中实现。
 
 | 能力 | HelloHebut 当前实现与缺口 | EchoMind 可借鉴实现 | 本项目落点 |
 | --- | --- | --- | --- |
@@ -84,11 +84,11 @@ flowchart TD
 | 官方政策、专业资料、历史录取数据 | 版本化资料目录 + Chroma；CSV 保留结构化查询 | 政策与数字的事实依据，不被用户画像覆盖 |
 | 当前考生条件、待澄清项、任务步骤 | 结构化 TaskState；后续由 Checkpointer 持久化执行快照 | 当前任务条件与长期偏好分离 |
 | 已确认偏好、历史任务经验 | MySQL 记录事实与版本；Chroma 可作派生检索索引 | 权限、有效期、撤销以关系记录为准 |
-| 已提交对话、请求回执、评测任务 | MySQL 整轮账本；评测任务持久化后续接入 | 对话、TaskState、回执同一事务提交；保持单一权威写入端 |
+| 已提交对话、请求回执、评测任务 | MySQL 整轮账本与持久 Job | 对话、TaskState、回执、维护 outbox 同事务；保持单一权威写入端 |
 | 身份、缓存、限流与队列 | Redis；知识活动清单暂保留 Redis | 对话提交以 MySQL 为准；数据库租约校验与提交处于同一事务 |
 | 调用轨迹与质量指标 | Langfuse + 现有 Prometheus | 记录结构化过程，默认脱敏，不保存模型隐藏思考过程 |
 
-保留 Chroma；MySQL 负责记忆版本、任务账本和执行快照，不再引入 PostgreSQL。暂不增加其他向量库、Mem0 或 Hindsight。后续接入 LangGraph 时，单独验证 MySQL Checkpointer 的序列化、并发与恢复契约，不能把当前答案快照视为完整节点恢复。Checkpointer 与跨线程 Store 职责不同，执行快照和长期事实需分别管理。[LangGraph 持久化文档](https://docs.langchain.com/oss/python/langgraph/persistence)
+保留 Chroma；MySQL 负责记忆版本、任务账本和执行快照，不引入 PostgreSQL。暂不增加其他向量库、Mem0 或 Hindsight。已验证自定义 MySQL Checkpointer 的 JSON 序列化、租约、并发、预算与进程退出恢复；恢复粒度为六个工作流节点，中断外部调用允许重做。执行快照与长期事实分别管理。[LangGraph 持久化文档](https://docs.langchain.com/oss/python/langgraph/persistence)
 
 ## 4. 核心模块怎么改
 
@@ -97,7 +97,7 @@ flowchart TD
 **输入**为问题、已确认条件、子任务、知识版本和剩余预算；**输出**为可引用的证据集合、未解决问题、冲突及停止原因。
 
 1. **规划**：输出类型化子问题，如“2025 年计算机选科要求”“2026 年计算机选科要求”，附年份、专业、学院等过滤条件。简单事实问题直接查询，省去规划模型调用。
-2. **召回**：复用现有 Chroma + RRF；将自定义词法匹配与 BM25 做对照，将现有向量模型与 BGE-M3 做中文检索对照。BGE-M3 支持多语言及多种检索表示，但是否适合本项目由本地评测决定。[官方模型卡](https://huggingface.co/BAAI/bge-m3)
+2. **召回**：复用 Chroma + RRF，自定义词法与 BM25 对照已完成；本机 CPU 先完成 MiniLM 与 BGE-small-zh-v1.5 对照。BGE-M3 留作资源允许时的更大模型候选，不将未运行的模型写成实测结果。[BGE-M3 模型卡](https://huggingface.co/BAAI/bge-m3)
 3. **重排**：先复用现有 LLM Rerank；有硬件或可用服务时，与 Cross-Encoder 重排比较质量、延迟和费用。首轮尝试召回 20 条、保留最多 8 条，依据证据覆盖调参。
 4. **核验**：逐个子问题检查资料年份、适用对象、原文支持和相互冲突；程序先过滤明显错误，模型辅助判断语义支持。
 5. **补查或停止**：仅对缺项改写查询；已充分、重复查询无新证据、无对应资料、达到预算均有明确停止路径。Query Planner 接管改写后，关闭工具内部重复扩展，避免查询倍增。
@@ -193,7 +193,7 @@ Skills 从四份角色常驻规则细化为任务流程，例如 `policy-compari
 
 标准 MCP 作为后续可插拔适配器：
 
-- **前置改名**：将当前本地 `mcp/` 改为 `tooling/` 并迁移导入、测试与文档，避免遮蔽官方 Python `mcp` 包。
+- **前置改名（已完成）**：本地 `mcp/` 已改为 `tooling/`，导入、测试和文档同步迁移，避免遮蔽官方 Python `mcp` 包。
 - **首个真实场景**：将本项目已有的知识检索、录取数据查询、数据版本统计暴露为只读 MCP Server，供另一个客户端复用；或接入已有的校内只读服务。
 - **复用契约**：本地函数调用与 MCP 调用共享 ToolSpec、错误状态和证据结构。没有跨服务需求时继续直接调用本地工具。
 - **接入约束**：限定服务器、工具与角色，校验参数和返回大小，鉴权由服务端完成；远程结果中的指令视为不可信内容。远程声明“只读”不等于已经获得信任。
@@ -238,8 +238,8 @@ Judge 使用少量人工标注样例校准，保留有效判分覆盖率，评�
 | `core/chat_service.py`、`api/main.py` | 保留服务入口，加入请求回执、统一预算、状态与 Trace；逐步委托给工作流 |
 | 新增 `core/contracts.py`、`core/task_state.py` | TaskState、Evidence、AgentResult、VerificationResult、ToolSpec 与字段合并规则 |
 | 新增 `rag/planner.py`、`rag/evidence_verifier.py` | 子问题规划、缺项判断、补检索与停止条件；调用现有检索实现 |
-| `mcp/knowledge_base.py`、`knowledge_indexing.py` | BM25 对照、元数据与资料版本治理；MCP 阶段统一迁移至 `tooling/` |
-| `mcp/admission_data.py` | 继续负责数字查询与规则计算；增加类型化输入适配，不把计算交给模型 |
+| `tooling/knowledge_base.py`、`knowledge_indexing.py` | BM25 对照、元数据与资料版本治理；已从旧 mcp 目录迁移 |
+| `tooling/admission_data.py` | 数字查询与规则计算、类型化输入适配，不把计算交给模型 |
 | `agents/agent_orchestrator.py`、新增 `agents/composer.py` | 主辅角色、受控工具循环、结构化合成与错误聚合 |
 | `memory/conversation_memory.py`、`fact_store.py`、`mysql_database.py`、`mysql_turn_store.py` | MySQL 整轮账本、答案快照、存量导入、安全压缩与偏好版本 |
 | 新增 `workflows/chat_graph.py`、`workflows/checkpoints.py` | 节点连线、恢复入口、状态版本与迁移 |

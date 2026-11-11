@@ -52,9 +52,9 @@ def inside(payload):
         exec(compile(source, module.__file__, 'exec'), module.__dict__)
     import chromadb
     from core.runtime import CURRENT_RUN, RunContext
-    from mcp.knowledge_base import KnowledgeBase
-    from mcp.knowledge_catalog import KnowledgeCatalog
-    from mcp.lexical_retrieval import ANALYZER_VERSION, BM25Cache
+    from tooling.knowledge_base import KnowledgeBase
+    from tooling.knowledge_catalog import KnowledgeCatalog
+    from tooling.lexical_retrieval import ANALYZER_VERSION, BM25Cache
     kb = KnowledgeBase.__new__(KnowledgeBase)
     collection = os.getenv('V2_KNOWLEDGE_COLLECTION', 'hello_hebut_v2')
     kb._collection = chromadb.HttpClient(host='chromadb', port=8000,
@@ -122,7 +122,7 @@ if __name__ == '__main__':
         files = ['retrieval_reference.json', 'retrieval_holdout.json']
         payload = {'datasets': [json.loads((root/'experiments/v2/datasets'/f).read_text(encoding='utf-8')) for f in files],
                    'sources': {name: (root/relative).read_text(encoding='utf-8') for name, relative in
-                               [('mcp.lexical_retrieval', 'mcp/lexical_retrieval.py'), ('mcp.knowledge_base', 'mcp/knowledge_base.py')]}}
+                               [('tooling.lexical_retrieval', 'tooling/lexical_retrieval.py'), ('tooling.knowledge_base', 'tooling/knowledge_base.py')]}}
         output = subprocess.check_output(['docker', 'compose', 'exec', '-T', 'hellohebut', 'python', '-c',
             Path(__file__).read_text(encoding='utf-8'), '--inside'], cwd=root, input=json.dumps(payload),
             text=True, encoding='utf-8', timeout=240)

@@ -7,10 +7,10 @@ import threading
 import unittest
 
 from core.runtime import CURRENT_RUN, RunContext
-from mcp.knowledge_base import KnowledgeBase
-from mcp.knowledge_catalog import KnowledgeCatalog, PublicationConflict
-from mcp.lexical_retrieval import BM25Cache
-from mcp.tool_manager import MCPToolManager, Tool
+from tooling.knowledge_base import KnowledgeBase
+from tooling.knowledge_catalog import KnowledgeCatalog, PublicationConflict
+from tooling.lexical_retrieval import BM25Cache
+from tooling.tool_manager import MCPToolManager, Tool
 from redis_support import RedisProcess
 
 

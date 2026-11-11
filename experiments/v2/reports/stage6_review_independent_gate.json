@@ -1,0 +1,372 @@
+{
+  "benchmark_tier": "independent",
+  "case_count": 30,
+  "approved_count": 0,
+  "scoring_version": "human-review-rubric-v1",
+  "passed": false,
+  "errors": [
+    {
+      "case_id": "human-review-01",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-01",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-01",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-02",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-02",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-02",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-03",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-03",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-03",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-04",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-04",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-04",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-05",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-05",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-05",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-06",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-06",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-06",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-07",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-07",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-07",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-08",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-08",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-08",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-09",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-09",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-09",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-10",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-10",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-10",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-11",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-11",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-11",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-12",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-12",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-12",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-13",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-13",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-13",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-14",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-14",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-14",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-15",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-15",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-15",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-16",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-16",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-16",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-17",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-17",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-17",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-18",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-18",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-18",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-19",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-19",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-19",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-20",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-20",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-20",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-21",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-21",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-21",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-22",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-22",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-22",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-23",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-23",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-23",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-24",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-24",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-24",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-25",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-25",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-25",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-26",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-26",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-26",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-27",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-27",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-27",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-28",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-28",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-28",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-29",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-29",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-29",
+      "code": "independent_case_contamination_or_attestation_missing"
+    },
+    {
+      "case_id": "human-review-30",
+      "code": "independent_case_requires_approval"
+    },
+    {
+      "case_id": "human-review-30",
+      "code": "independent_case_requires_new_human_origin"
+    },
+    {
+      "case_id": "human-review-30",
+      "code": "independent_case_contamination_or_attestation_missing"
+    }
+  ],
+  "eligible_for_independent_acceptance": false,
+  "limitations": "Declarations and snapshot hashes are checked; human identity, source authority and label truth still require actual review.",
+  "input_sha256": "d0c41afa2ad923b379e202acfb24c8f65e7cba1064dfe70a9d7ac0a3806dbf71"
+}

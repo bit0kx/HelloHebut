@@ -22,10 +22,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from mcp.knowledge_indexing import INDEX_VERSION, contextual_chunks, lexical_score, split_text
-from mcp.knowledge_catalog import KnowledgeCatalog
+from tooling.knowledge_indexing import INDEX_VERSION, contextual_chunks, lexical_score, split_text
+from tooling.knowledge_catalog import KnowledgeCatalog
 from core.runtime import CURRENT_RUN
-from mcp.lexical_retrieval import ANALYZER_VERSION, BM25Cache, BM25Index, without_filter_year
+from tooling.lexical_retrieval import ANALYZER_VERSION, BM25Cache, BM25Index, without_filter_year
 
 logger = logging.getLogger(__name__)
 _SEARCH_SNAPSHOT = ContextVar('knowledge_search_snapshot', default=None)

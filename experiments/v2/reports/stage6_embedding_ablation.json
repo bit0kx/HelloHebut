@@ -1,0 +1,2162 @@
+{
+  "completed": true,
+  "corpus_sha256": "bb3f8fbb329156dec385c3413c0dca934ad4168bed4c9a9db8b4e7192f48bdee",
+  "chunks": 205,
+  "script_sha256": "0fede64b8a050aec32ea80a69f66f053a16c19cf5e88dfd00633d5655ca77764",
+  "scoring_source_sha256": "63e4795440e88c35d1d5d7bbe15f4c06d381d31db09f9c5e3a3613aa778e9935",
+  "dataset_sha256": {
+    "retrieval_reference.json": "10e33652acbdfad7bc260f4e41585d4515fde4c718ea98d7c6323a760c1070ee",
+    "retrieval_holdout.json": "9206cf4379a0e371b2188fc55db8dca229467ca94c59778a467575daafb03936"
+  },
+  "python": "3.12.13",
+  "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+  "repeats": 3,
+  "versions": {
+    "torch": "2.6.0+cpu",
+    "transformers": "4.46.3",
+    "safetensors": "0.7.0",
+    "onnxruntime": "1.27.0",
+    "chromadb": "0.5.23",
+    "numpy": "2.5.1"
+  },
+  "models": {
+    "minilm_onnx_384": {
+      "dimensions": 384,
+      "index_bytes": 315008,
+      "index_sha256": "82ff498da14b4c193b70385f0bcef7f2440a262ec7c9a463fcbab1d49042bb2d",
+      "build_s": 5.462,
+      "device": "cpu",
+      "max_tokens": 256,
+      "model": "all-MiniLM-L6-v2",
+      "pooling": "mean + L2",
+      "query_instruction": "",
+      "onnx_sha256": "4f148ba8ae9c2c7fbee4af2b132db8d06c6a6545b47fc83bbb98c3d22b8393e6",
+      "tokenizer_sha256": "da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0",
+      "providers": [
+        "CPUExecutionProvider"
+      ]
+    },
+    "bge_small_zh_512": {
+      "dimensions": 512,
+      "index_bytes": 419968,
+      "index_sha256": "64c93de186e75be28f548dff13dc16244020a832ed57c091a513f82c23ed51e1",
+      "build_s": 31.867,
+      "device": "cpu",
+      "max_tokens": 512,
+      "model": "BAAI/bge-small-zh-v1.5",
+      "revision": "7999e1d3359715c523056ef9478215996d62a620",
+      "pooling": "CLS + L2",
+      "query_instruction": "为这个句子生成表示以用于检索相关文章：",
+      "artifact_manifest": {
+        "model": "BAAI/bge-small-zh-v1.5",
+        "revision": "7999e1d3359715c523056ef9478215996d62a620",
+        "files": {
+          "config.json": {
+            "sha256": "3853a7979202c348751b753e36f579c41d8da7d36af617d3d907e1fc9b441f2a",
+            "bytes": 776
+          },
+          "model.safetensors": {
+            "sha256": "354763b9b1357bc9c44f62c6be2276321081ed2567773608c0d0785b61d5a026",
+            "bytes": 95827648
+          },
+          "tokenizer.json": {
+            "sha256": "48cea5d44424912a6fd1ea647bf4fe50b55ab8b1e5879c3275f80e339e8fae26",
+            "bytes": 439125
+          },
+          "tokenizer_config.json": {
+            "sha256": "e6f3b96db926a37d4039995fbf5ad17de158dfb8f6343d607e4dbaad18d75f5a",
+            "bytes": 367
+          },
+          "special_tokens_map.json": {
+            "sha256": "b6d346be366a7d1d48332dbc9fdf3bf8960b5d879522b7799ddba59e76237ee3",
+            "bytes": 125
+          },
+          "vocab.txt": {
+            "sha256": "45bbac6b341c319adc98a532532882e91a9cefc0329aa57bac9ae761c27b291c",
+            "bytes": 109540
+          }
+        },
+        "source": "https://huggingface.co/BAAI/bge-small-zh-v1.5/tree/7999e1d3359715c523056ef9478215996d62a620"
+      }
+    }
+  },
+  "benchmarks": [
+    {
+      "model": "minilm_onnx_384",
+      "benchmark_id": "stage2-builtin-development-v1",
+      "metrics": {
+        "recall_at_8": 0.0,
+        "ndcg_at_8": 0.0,
+        "mrr_at_8": 0.0,
+        "missing_year_empty": 2,
+        "missing_year": 2,
+        "query_ms_p50": 15.518,
+        "query_ms_p95": 20.64
+      },
+      "rows": [
+        {
+          "case_id": "accommodation",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "8fc33835297246c385703653f3363ad1:0",
+              "title": "河北工业大学历年录取成绩官方查询入口",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "19b40a47125e7bc37758b3b10df15ef3318bec8da3291896d3143bd2eecb130e"
+            },
+            {
+              "chunk_id": "cfdffe22ff5d473eaa6edca986153252:0",
+              "title": "2026年体检和专业限制",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "572d07bb3064f80752f1aac4b93f5fce5a39789d6f2a96df3664eff7b59d025c"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:12",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "1873992d6a32969459c59135f6b2adf569227f2e4cbeb15241a72d38b60a8a0d"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:8",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "026cfd09fd1bf72300d4dfbb02b4c8551f3f853ef503add7a1609afcc23034d0"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:3",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "3f7f59f2ec9917f3b8f01e546b94ccdb0f3b28e65e55e92aecf21383d6e30e84"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:15",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 15,
+              "keyword_score": null,
+              "content_hash": "2a8f784ee84b768c16e91ed06343bb4f70c4243382056a0af515aa1601035f39"
+            },
+            {
+              "chunk_id": "6c3e929687b545bca0386b979d7a24a6:10",
+              "title": "河北工业大学2026年本科招生简章之人工智能与数据科学学院",
+              "source_file": "河北工业大学2026年本科招生简章之人工智能与数据科学学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e3aab84a70174a0718d3f695d7b21eaf650c9450e0a5607fdea4a524cc8d9f09"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            23.422,
+            14.597,
+            14.579
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "campuses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:3",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "3f7f59f2ec9917f3b8f01e546b94ccdb0f3b28e65e55e92aecf21383d6e30e84"
+            },
+            {
+              "chunk_id": "5d44ab18ddbe45f8912bab5ea58e83b8:0",
+              "title": "河北工业大学2026年本科招生简章之人文与法律学院",
+              "source_file": "河北工业大学2026年本科招生简章之人文与法律学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "91eb6b5821644eca57d9e7a43252a1037ebc288e8e31aaaebb0543d0b02f75bf"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "c67ef28f42fa4d489472208cbbee9498:6",
+              "title": "河北工业大学2026年本科招生简章之理学院",
+              "source_file": "河北工业大学2026年本科招生简章之理学院.txt",
+              "chunk": 6,
+              "keyword_score": null,
+              "content_hash": "586b80038ee24e38db6c2ab5f42f6f934b50a086fc3bb895c522336eeb619b52"
+            },
+            {
+              "chunk_id": "6c3e929687b545bca0386b979d7a24a6:1",
+              "title": "河北工业大学2026年本科招生简章之人工智能与数据科学学院",
+              "source_file": "河北工业大学2026年本科招生简章之人工智能与数据科学学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "307bdbb231d0c7cc1eac9ad4f75765cd107568e5d96d1cfdbdc31b135468ce83"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            17.052,
+            20.149,
+            15.522
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "adjustment",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "8fc33835297246c385703653f3363ad1:0",
+              "title": "河北工业大学历年录取成绩官方查询入口",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "19b40a47125e7bc37758b3b10df15ef3318bec8da3291896d3143bd2eecb130e"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:12",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "b6f34a07e2ac46d26b487d9139c5560ca1dba3cd8b323770c7b59a1c574cf5b8"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:3",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "3f7f59f2ec9917f3b8f01e546b94ccdb0f3b28e65e55e92aecf21383d6e30e84"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:15",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 15,
+              "keyword_score": null,
+              "content_hash": "2a8f784ee84b768c16e91ed06343bb4f70c4243382056a0af515aa1601035f39"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            14.746,
+            16.132,
+            16.576
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "contact",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "983ba713eeeb4c0793eb7e1d996a60e2:0",
+              "title": "河北工业大学历年招生计划官方查询入口",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "baa0fcb0127a874e7e1075090b834de1cf747e29c2b626f040c76970e032b463"
+            },
+            {
+              "chunk_id": "8fc33835297246c385703653f3363ad1:0",
+              "title": "河北工业大学历年录取成绩官方查询入口",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "19b40a47125e7bc37758b3b10df15ef3318bec8da3291896d3143bd2eecb130e"
+            },
+            {
+              "chunk_id": "cfdffe22ff5d473eaa6edca986153252:0",
+              "title": "2026年体检和专业限制",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "572d07bb3064f80752f1aac4b93f5fce5a39789d6f2a96df3664eff7b59d025c"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:12",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "b6f34a07e2ac46d26b487d9139c5560ca1dba3cd8b323770c7b59a1c574cf5b8"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:12",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "1873992d6a32969459c59135f6b2adf569227f2e4cbeb15241a72d38b60a8a0d"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:24",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 24,
+              "keyword_score": null,
+              "content_hash": "a16bc41a8d8432f66498d5ac3e65168b55e79739019f5591fcc8402540f9ef41"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            17.533,
+            13.524,
+            14.056
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2024",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            13.493,
+            18.356,
+            15.625
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2025",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            13.49,
+            14.089,
+            15.514
+          ],
+          "stable_across_repeats": true
+        }
+      ]
+    },
+    {
+      "model": "minilm_onnx_384",
+      "benchmark_id": "stage3-source-separated-validation-v1",
+      "metrics": {
+        "recall_at_8": 0.0,
+        "ndcg_at_8": 0.0,
+        "mrr_at_8": 0.0,
+        "missing_year_empty": 2,
+        "missing_year": 2,
+        "query_ms_p50": 18.29,
+        "query_ms_p95": 30.558
+      },
+      "rows": [
+        {
+          "case_id": "vehicle_directions",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "8fc33835297246c385703653f3363ad1:0",
+              "title": "河北工业大学历年录取成绩官方查询入口",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "19b40a47125e7bc37758b3b10df15ef3318bec8da3291896d3143bd2eecb130e"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:12",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "b6f34a07e2ac46d26b487d9139c5560ca1dba3cd8b323770c7b59a1c574cf5b8"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:12",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "1873992d6a32969459c59135f6b2adf569227f2e4cbeb15241a72d38b60a8a0d"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:15",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 15,
+              "keyword_score": null,
+              "content_hash": "2a8f784ee84b768c16e91ed06343bb4f70c4243382056a0af515aa1601035f39"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            25.612,
+            37.632,
+            20.185
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "mechatronics_jobs",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "8fc33835297246c385703653f3363ad1:0",
+              "title": "河北工业大学历年录取成绩官方查询入口",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "19b40a47125e7bc37758b3b10df15ef3318bec8da3291896d3143bd2eecb130e"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "b0d1f16c44f746c292974203beac0449:0",
+              "title": "2026年普通本科招生计划与录取总则",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "402da5ab00c73ddd0e6fed00f92e16f0c608a3ef7f51698aca1605537a459660"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:12",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "1873992d6a32969459c59135f6b2adf569227f2e4cbeb15241a72d38b60a8a0d"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:10",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "f8e14f481b20e98a6a2b7982b493f759c7188cd5a0f51595eed8cfc1566363cc"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:3",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "34ca78a61b14ce016272d8e603165cefce069ed41385c92870a6ba1b6b4160d9"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:12",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "b6f34a07e2ac46d26b487d9139c5560ca1dba3cd8b323770c7b59a1c574cf5b8"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            29.677,
+            31.279,
+            22.418
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "english_courses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "cfdffe22ff5d473eaa6edca986153252:0",
+              "title": "2026年体检和专业限制",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "572d07bb3064f80752f1aac4b93f5fce5a39789d6f2a96df3664eff7b59d025c"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:3",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "0f953a6e85c09ea2b82f438cb3c8f3ea5338196e9d72a4f3ad82df74aab0c1e6"
+            },
+            {
+              "chunk_id": "6c3e929687b545bca0386b979d7a24a6:10",
+              "title": "河北工业大学2026年本科招生简章之人工智能与数据科学学院",
+              "source_file": "河北工业大学2026年本科招生简章之人工智能与数据科学学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e3aab84a70174a0718d3f695d7b21eaf650c9450e0a5607fdea4a524cc8d9f09"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:12",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "b6f34a07e2ac46d26b487d9139c5560ca1dba3cd8b323770c7b59a1c574cf5b8"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:15",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 15,
+              "keyword_score": null,
+              "content_hash": "2a8f784ee84b768c16e91ed06343bb4f70c4243382056a0af515aa1601035f39"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            18.171,
+            17.599,
+            18.613
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "japanese_courses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:3",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "34ca78a61b14ce016272d8e603165cefce069ed41385c92870a6ba1b6b4160d9"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:3",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "3f7f59f2ec9917f3b8f01e546b94ccdb0f3b28e65e55e92aecf21383d6e30e84"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:7",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "9784d7bdce070382bc7676d6b9006b70695031b4cb7382d1901a468b94f32282"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:9",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "030238287e9467f1d452d68eed53eaee5deccef9f362f68a13e6fab4e73ad7fa"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            14.475,
+            20.737,
+            16.8
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "french_partners",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:3",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "34ca78a61b14ce016272d8e603165cefce069ed41385c92870a6ba1b6b4160d9"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:3",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "3f7f59f2ec9917f3b8f01e546b94ccdb0f3b28e65e55e92aecf21383d6e30e84"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:3",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "0f953a6e85c09ea2b82f438cb3c8f3ea5338196e9d72a4f3ad82df74aab0c1e6"
+            },
+            {
+              "chunk_id": "6c3e929687b545bca0386b979d7a24a6:20",
+              "title": "河北工业大学2026年本科招生简章之人工智能与数据科学学院",
+              "source_file": "河北工业大学2026年本科招生简章之人工智能与数据科学学院.txt",
+              "chunk": 20,
+              "keyword_score": null,
+              "content_hash": "0fc4bebebccdf2078a9b46c96e7d83635f0ae18ac861386cd68091e41c783311"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            18.086,
+            18.398,
+            24.48
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "architecture_degree",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:3",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "34ca78a61b14ce016272d8e603165cefce069ed41385c92870a6ba1b6b4160d9"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:9",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "030238287e9467f1d452d68eed53eaee5deccef9f362f68a13e6fab4e73ad7fa"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            },
+            {
+              "chunk_id": "5d44ab18ddbe45f8912bab5ea58e83b8:0",
+              "title": "河北工业大学2026年本科招生简章之人文与法律学院",
+              "source_file": "河北工业大学2026年本科招生简章之人文与法律学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "91eb6b5821644eca57d9e7a43252a1037ebc288e8e31aaaebb0543d0b02f75bf"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:5",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "3f05eac47a1da2a6fa59fb3a3d17a309cffa5711931323064cdf11f3b8b8e7a7"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:6",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 6,
+              "keyword_score": null,
+              "content_hash": "2277949d534d460968c7c20c3d140ed1146f566468a84e6fba1419493061fb30"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            15.745,
+            17.828,
+            16.061
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "environment_courses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:7",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "9784d7bdce070382bc7676d6b9006b70695031b4cb7382d1901a468b94f32282"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "5d44ab18ddbe45f8912bab5ea58e83b8:0",
+              "title": "河北工业大学2026年本科招生简章之人文与法律学院",
+              "source_file": "河北工业大学2026年本科招生简章之人文与法律学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "91eb6b5821644eca57d9e7a43252a1037ebc288e8e31aaaebb0543d0b02f75bf"
+            },
+            {
+              "chunk_id": "6e7d888b18094156b05727e5398fac30:1",
+              "title": "河北工业大学2026年招生简章之电气工程学院",
+              "source_file": "河北工业大学2026年招生简章之电气工程学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "f270331d8739d632d79d00eae8fd141c47ecb23614339b70d0aecf172829d983"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:15",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 15,
+              "keyword_score": null,
+              "content_hash": "2a8f784ee84b768c16e91ed06343bb4f70c4243382056a0af515aa1601035f39"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            14.237,
+            19.945,
+            18.806
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "art_technology_jobs",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "8fc33835297246c385703653f3363ad1:0",
+              "title": "河北工业大学历年录取成绩官方查询入口",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "19b40a47125e7bc37758b3b10df15ef3318bec8da3291896d3143bd2eecb130e"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:15",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 15,
+              "keyword_score": null,
+              "content_hash": "2a8f784ee84b768c16e91ed06343bb4f70c4243382056a0af515aa1601035f39"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:12",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "1873992d6a32969459c59135f6b2adf569227f2e4cbeb15241a72d38b60a8a0d"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:12",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "b6f34a07e2ac46d26b487d9139c5560ca1dba3cd8b323770c7b59a1c574cf5b8"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:8",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "026cfd09fd1bf72300d4dfbb02b4c8551f3f853ef503add7a1609afcc23034d0"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            18.019,
+            18.014,
+            18.182
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2024_vehicle",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            17.197,
+            18.524,
+            17.719
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2025_architecture",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            28.192,
+            19.096,
+            15.318
+          ],
+          "stable_across_repeats": true
+        }
+      ]
+    },
+    {
+      "model": "bge_small_zh_512",
+      "benchmark_id": "stage2-builtin-development-v1",
+      "metrics": {
+        "recall_at_8": 0.75,
+        "ndcg_at_8": 0.75,
+        "mrr_at_8": 0.75,
+        "missing_year_empty": 2,
+        "missing_year": 2,
+        "query_ms_p50": 9.788,
+        "query_ms_p95": 12.11
+      },
+      "rows": [
+        {
+          "case_id": "accommodation",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "b1f4b8c772ca4d8499fd1a19bb8e2c47:0",
+              "title": "2026年收费、合作办学与学生资助",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "7ea7b1cfb8b0b37658dffb7cd399a58d739c464fe416dec6f06027e743cebe02"
+            },
+            {
+              "chunk_id": "cfdffe22ff5d473eaa6edca986153252:0",
+              "title": "2026年体检和专业限制",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "572d07bb3064f80752f1aac4b93f5fce5a39789d6f2a96df3664eff7b59d025c"
+            },
+            {
+              "chunk_id": "b0d1f16c44f746c292974203beac0449:0",
+              "title": "2026年普通本科招生计划与录取总则",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "402da5ab00c73ddd0e6fed00f92e16f0c608a3ef7f51698aca1605537a459660"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:9",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "c5576ccb1028d19530d7346af700815b2481ce121e18fb45d992ffc197db9b90"
+            },
+            {
+              "chunk_id": "58c55ec80bad4d3cbec6cf9f8a73d07f:0",
+              "title": "2026年专业安排、调剂与高考改革规则",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "f0ea86ff4355b42c32764e3b6e16d16b3304bd0dd8ac19632abd8ff35b9a8205"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:1",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "346b86e41984cd875b987e2974c6d23c9a03d50a0a69254d18780d2677390480"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "a7810abdac2144a1aad19bdaf8dca421:14",
+              "title": "河北工业大学2026年本科招生简章之土木与交通学院",
+              "source_file": "河北工业大学2026年本科招生简章之土木与交通学院.txt",
+              "chunk": 14,
+              "keyword_score": null,
+              "content_hash": "6e5638ba24725bc309bdde4ab0a8b09bc9585290172c9f5c2317b740196f4364"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            11.016,
+            10.129,
+            8.732
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "campuses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:3",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "34ca78a61b14ce016272d8e603165cefce069ed41385c92870a6ba1b6b4160d9"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:5",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "3f05eac47a1da2a6fa59fb3a3d17a309cffa5711931323064cdf11f3b8b8e7a7"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:3",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "afecbab3632ac894c03b306eb77a048d6d1e77129f1da777d4d11c9dfc1e139a"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:10",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 10,
+              "keyword_score": null,
+              "content_hash": "e5fe3762106c3466ebed93eab8797fd85acd6993c7a82df186c1303622d6c18c"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:6",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 6,
+              "keyword_score": null,
+              "content_hash": "2277949d534d460968c7c20c3d140ed1146f566468a84e6fba1419493061fb30"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:8",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "d8906895b318d54b23174dcd97321cada15ee8d11d43cd422e3368b80e5fc03a"
+            },
+            {
+              "chunk_id": "c67ef28f42fa4d489472208cbbee9498:11",
+              "title": "河北工业大学2026年本科招生简章之理学院",
+              "source_file": "河北工业大学2026年本科招生简章之理学院.txt",
+              "chunk": 11,
+              "keyword_score": null,
+              "content_hash": "3d9507b1f38aeb4203eb96b99df985c82c8fdcb99922c33e3c5209c2123dcd1a"
+            }
+          ],
+          "recall_at_8": 0.0,
+          "ndcg_at_8": 0.0,
+          "mrr_at_8": 0.0,
+          "first_relevant_rank": null,
+          "latency_ms": [
+            12.029,
+            9.487,
+            11.177
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "adjustment",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "58c55ec80bad4d3cbec6cf9f8a73d07f:0",
+              "title": "2026年专业安排、调剂与高考改革规则",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "f0ea86ff4355b42c32764e3b6e16d16b3304bd0dd8ac19632abd8ff35b9a8205"
+            },
+            {
+              "chunk_id": "cfdffe22ff5d473eaa6edca986153252:0",
+              "title": "2026年体检和专业限制",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "572d07bb3064f80752f1aac4b93f5fce5a39789d6f2a96df3664eff7b59d025c"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:15",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 15,
+              "keyword_score": null,
+              "content_hash": "2a8f784ee84b768c16e91ed06343bb4f70c4243382056a0af515aa1601035f39"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            },
+            {
+              "chunk_id": "b0d1f16c44f746c292974203beac0449:0",
+              "title": "2026年普通本科招生计划与录取总则",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "402da5ab00c73ddd0e6fed00f92e16f0c608a3ef7f51698aca1605537a459660"
+            },
+            {
+              "chunk_id": "c67ef28f42fa4d489472208cbbee9498:11",
+              "title": "河北工业大学2026年本科招生简章之理学院",
+              "source_file": "河北工业大学2026年本科招生简章之理学院.txt",
+              "chunk": 11,
+              "keyword_score": null,
+              "content_hash": "3d9507b1f38aeb4203eb96b99df985c82c8fdcb99922c33e3c5209c2123dcd1a"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:14",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 14,
+              "keyword_score": null,
+              "content_hash": "b984eb8c97c0f6f237689b5c9ea81cbe2215455a27bf109ea4defd297ed7ccdd"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:18",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 18,
+              "keyword_score": null,
+              "content_hash": "a287835736d810e2e280ac617ddf7f1ec3e93f2838624426a4eecb902fa3ce5c"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            12.569,
+            9.695,
+            10.864
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "contact",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "83427276dfba42f98b31aa64c65471c4:0",
+              "title": "河北工业大学本科招生官方联系渠道",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "b4067b823b853e3e52a68b7e11d2ad44934acf04872d7c575a1a1dd1559afb92"
+            },
+            {
+              "chunk_id": "b0d1f16c44f746c292974203beac0449:0",
+              "title": "2026年普通本科招生计划与录取总则",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "402da5ab00c73ddd0e6fed00f92e16f0c608a3ef7f51698aca1605537a459660"
+            },
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:3",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "34ca78a61b14ce016272d8e603165cefce069ed41385c92870a6ba1b6b4160d9"
+            },
+            {
+              "chunk_id": "c67ef28f42fa4d489472208cbbee9498:11",
+              "title": "河北工业大学2026年本科招生简章之理学院",
+              "source_file": "河北工业大学2026年本科招生简章之理学院.txt",
+              "chunk": 11,
+              "keyword_score": null,
+              "content_hash": "3d9507b1f38aeb4203eb96b99df985c82c8fdcb99922c33e3c5209c2123dcd1a"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "c67ef28f42fa4d489472208cbbee9498:8",
+              "title": "河北工业大学2026年本科招生简章之理学院",
+              "source_file": "河北工业大学2026年本科招生简章之理学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "590f1baca70129038a21552da4f43f940e7354a2c776717207de5b0fa1566f11"
+            },
+            {
+              "chunk_id": "c67ef28f42fa4d489472208cbbee9498:5",
+              "title": "河北工业大学2026年本科招生简章之理学院",
+              "source_file": "河北工业大学2026年本科招生简章之理学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "590f1baca70129038a21552da4f43f940e7354a2c776717207de5b0fa1566f11"
+            },
+            {
+              "chunk_id": "c67ef28f42fa4d489472208cbbee9498:9",
+              "title": "河北工业大学2026年本科招生简章之理学院",
+              "source_file": "河北工业大学2026年本科招生简章之理学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "1c6bf87d6bb41952fd4cf887b7442959c83d143b3283554bd2afa77ebeb21066"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            9.88,
+            7.858,
+            11.513
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2024",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            10.156,
+            7.874,
+            7.787
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2025",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            7.468,
+            8.343,
+            7.499
+          ],
+          "stable_across_repeats": true
+        }
+      ]
+    },
+    {
+      "model": "bge_small_zh_512",
+      "benchmark_id": "stage3-source-separated-validation-v1",
+      "metrics": {
+        "recall_at_8": 1.0,
+        "ndcg_at_8": 0.907732,
+        "mrr_at_8": 0.875,
+        "missing_year_empty": 2,
+        "missing_year": 2,
+        "query_ms_p50": 8.594,
+        "query_ms_p95": 11.366
+      },
+      "rows": [
+        {
+          "case_id": "vehicle_directions",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:4",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 4,
+              "keyword_score": null,
+              "content_hash": "b184b3799588967b8ac2a7f97bd3cda3101c2f00e83493dd96b57338b43ceb99"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:23",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 23,
+              "keyword_score": null,
+              "content_hash": "fa005c49da93c96c66653401598c8849a76ca167e8f2ea2e20eda6c3737a44d8"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:12",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "1873992d6a32969459c59135f6b2adf569227f2e4cbeb15241a72d38b60a8a0d"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:24",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 24,
+              "keyword_score": null,
+              "content_hash": "a16bc41a8d8432f66498d5ac3e65168b55e79739019f5591fcc8402540f9ef41"
+            },
+            {
+              "chunk_id": "a7810abdac2144a1aad19bdaf8dca421:6",
+              "title": "河北工业大学2026年本科招生简章之土木与交通学院",
+              "source_file": "河北工业大学2026年本科招生简章之土木与交通学院.txt",
+              "chunk": 6,
+              "keyword_score": null,
+              "content_hash": "437911962802db2346da5aa3750da3d495a1c2f94d4147e8ee5160812abfde07"
+            },
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:1",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "345d33127c17fd0675e4f7c2d8af1a3ee7a4a0ca37d8f67633fe47046ae3644b"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:11",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 11,
+              "keyword_score": null,
+              "content_hash": "0cd90eee97cb2f178cce675d7a63448ab54c6e56549913d8788ba1b72c7a3027"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            8.557,
+            7.847,
+            8.697
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "mechatronics_jobs",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:6",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 6,
+              "keyword_score": null,
+              "content_hash": "6c724ca2390d9994b5dbb9214d965394a6de5f0b43ff94105914292ac2087991"
+            },
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:7",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "7fb3156052beafd988878768b0c4017dda27953fa3b57284529aee4d2534fac0"
+            },
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:1",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "345d33127c17fd0675e4f7c2d8af1a3ee7a4a0ca37d8f67633fe47046ae3644b"
+            },
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:4",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 4,
+              "keyword_score": null,
+              "content_hash": "b184b3799588967b8ac2a7f97bd3cda3101c2f00e83493dd96b57338b43ceb99"
+            },
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:2",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "459c7d060006b01670374ffb1463f8b9103935d89d9999a47a7b37d327f0fc32"
+            },
+            {
+              "chunk_id": "cc7f2280f7a84faa8f3a45c81e94bd65:5",
+              "title": "河北工业大学2026年本科招生简章之机械工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之机械工程学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "d11199f97cff485e853f73a4def495f9283b8939780faa8a022ab55a5a85e19e"
+            },
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:7",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "10f66ff6eadff479f5262593b6d53a0bf27374528fb633a77de80f2ed0c47c13"
+            },
+            {
+              "chunk_id": "d2f199edd2234328b980a5ef2db8580a:9",
+              "title": "河北工业大学2026年本科招生简章之电子信息工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之电子信息工程学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "9ecc12f199d1f4a95b78482804e6774ceccf6abfe23deb11367b615e15bd3e87"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            9.063,
+            7.48,
+            7.969
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "english_courses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "cfdffe22ff5d473eaa6edca986153252:0",
+              "title": "2026年体检和专业限制",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "572d07bb3064f80752f1aac4b93f5fce5a39789d6f2a96df3664eff7b59d025c"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:4",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 4,
+              "keyword_score": null,
+              "content_hash": "b4b40ea25eb88256161c8e331581eede9fe9388e020a3bb33f99b1d9accbc31e"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:3",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "0f953a6e85c09ea2b82f438cb3c8f3ea5338196e9d72a4f3ad82df74aab0c1e6"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:8",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "158537fab5243ce332ef7057afaf30b7d6cc6d8386a91606cde776cc1cf3b7f3"
+            },
+            {
+              "chunk_id": "5d44ab18ddbe45f8912bab5ea58e83b8:5",
+              "title": "河北工业大学2026年本科招生简章之人文与法律学院",
+              "source_file": "河北工业大学2026年本科招生简章之人文与法律学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "c9054c7a4cf337dd4e61e2173de7887b7a5adc18008237253b88079c098e455b"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:2",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "45fbeda65d11bc774a4d15f588992a3a1894453491c06be5ffb5a007b59c4279"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:9",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "c5576ccb1028d19530d7346af700815b2481ce121e18fb45d992ffc197db9b90"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 0.6309297535714575,
+          "mrr_at_8": 0.5,
+          "first_relevant_rank": 2,
+          "latency_ms": [
+            8.476,
+            13.419,
+            10.807
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "japanese_courses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:6",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 6,
+              "keyword_score": null,
+              "content_hash": "14f22d3f5febc089651dce2c7776ff6e2d15a5a25d75c07cfb4a2bed03925e91"
+            },
+            {
+              "chunk_id": "e1bdf60c06dc4581927f51f24a1590a3:19",
+              "title": "河北工业大学2026年本科招生简章之利物浦学院",
+              "source_file": "河北工业大学2026年本科招生简章之利物浦学院.txt",
+              "chunk": 19,
+              "keyword_score": null,
+              "content_hash": "60046092a01925109f0ae774887f1d663f33da915bca5afe4e324496f1c23e98"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:7",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "0fe3399793f2927d5985df2576c68dd1bdadab6df1f5aa1460063163fa132454"
+            },
+            {
+              "chunk_id": "cfdffe22ff5d473eaa6edca986153252:0",
+              "title": "2026年体检和专业限制",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "572d07bb3064f80752f1aac4b93f5fce5a39789d6f2a96df3664eff7b59d025c"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:8",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "158537fab5243ce332ef7057afaf30b7d6cc6d8386a91606cde776cc1cf3b7f3"
+            },
+            {
+              "chunk_id": "b1f4b8c772ca4d8499fd1a19bb8e2c47:0",
+              "title": "2026年收费、合作办学与学生资助",
+              "source_file": "",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "7ea7b1cfb8b0b37658dffb7cd399a58d739c464fe416dec6f06027e743cebe02"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:0",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "b309fcdab2274816b915efa2f0dcf140c1e585431784be7525b6179bd6952bef"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            10.595,
+            10.233,
+            8.312
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "french_partners",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:8",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "158537fab5243ce332ef7057afaf30b7d6cc6d8386a91606cde776cc1cf3b7f3"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:9",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "c5576ccb1028d19530d7346af700815b2481ce121e18fb45d992ffc197db9b90"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:2",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "45fbeda65d11bc774a4d15f588992a3a1894453491c06be5ffb5a007b59c4279"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:5",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "0e53efc1c723ec8a096683c67488ee6bf68849d96d9eaa91ed3ba69bc5e8949b"
+            },
+            {
+              "chunk_id": "5d44ab18ddbe45f8912bab5ea58e83b8:5",
+              "title": "河北工业大学2026年本科招生简章之人文与法律学院",
+              "source_file": "河北工业大学2026年本科招生简章之人文与法律学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "c9054c7a4cf337dd4e61e2173de7887b7a5adc18008237253b88079c098e455b"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:0",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "b309fcdab2274816b915efa2f0dcf140c1e585431784be7525b6179bd6952bef"
+            },
+            {
+              "chunk_id": "52ef3648522446268fa7c54de690020d:4",
+              "title": "河北工业大学2026年本科招生简章之外国语学院",
+              "source_file": "河北工业大学2026年本科招生简章之外国语学院.txt",
+              "chunk": 4,
+              "keyword_score": null,
+              "content_hash": "b4b40ea25eb88256161c8e331581eede9fe9388e020a3bb33f99b1d9accbc31e"
+            },
+            {
+              "chunk_id": "5d44ab18ddbe45f8912bab5ea58e83b8:3",
+              "title": "河北工业大学2026年本科招生简章之人文与法律学院",
+              "source_file": "河北工业大学2026年本科招生简章之人文与法律学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "808360305e7295f0839cc28cae4e2deaec8c16ed1700900c8b3a90b200e504cb"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            9.075,
+            9.532,
+            11.822
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "architecture_degree",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:3",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 3,
+              "keyword_score": null,
+              "content_hash": "7e2ee1addfdb843765bf4ae2149ea637310b57d515158b13a0149f91d350c018"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:1",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "346b86e41984cd875b987e2974c6d23c9a03d50a0a69254d18780d2677390480"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:5",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "652838e0f13e2011d8849b1657a5f93e0c09de7c061f3c5a21d17233bb9cc326"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:4",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 4,
+              "keyword_score": null,
+              "content_hash": "1623120645e9d74a560b61b996699e185a50903af065fa1e2cb3e50022574915"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:2",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "f1163062c054f87c16da80ffae6d8504fa6b0ea16cf254601b624899033e7576"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:7",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "9784d7bdce070382bc7676d6b9006b70695031b4cb7382d1901a468b94f32282"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:0",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 0,
+              "keyword_score": null,
+              "content_hash": "1ee6567a11788506c0e1693dc0355f82e0466f9477dc823cba603aaf705983ab"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:9",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "7f8c8afc9a255c2e2287696d1a6308b89a59b1983ed2e6dca9f9332a8f20bfb0"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            10.651,
+            8.63,
+            8.211
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "environment_courses",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:8",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "9f2f3745288f6cda42af9e1abad521d07258dacb50094e337680372f25c8c09d"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:1",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "346b86e41984cd875b987e2974c6d23c9a03d50a0a69254d18780d2677390480"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:5",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "652838e0f13e2011d8849b1657a5f93e0c09de7c061f3c5a21d17233bb9cc326"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:4",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 4,
+              "keyword_score": null,
+              "content_hash": "1623120645e9d74a560b61b996699e185a50903af065fa1e2cb3e50022574915"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:7",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "9784d7bdce070382bc7676d6b9006b70695031b4cb7382d1901a468b94f32282"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:12",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "b6f34a07e2ac46d26b487d9139c5560ca1dba3cd8b323770c7b59a1c574cf5b8"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:1",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "1b2694afeb37d626d3e1a5047fbc4bf23fd713b495c8f5569146183349faace2"
+            },
+            {
+              "chunk_id": "2039a7be89e440a6a29009e11f43ca49:11",
+              "title": "河北工业大学2026年本科招生简章之能源与环境工程学院",
+              "source_file": "河北工业大学2026年本科招生简章之能源与环境工程学院.txt",
+              "chunk": 11,
+              "keyword_score": null,
+              "content_hash": "69d113f7f9ad858253ef285c94146e2da0a78590789660632dc0ee3d92e8bf51"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 1.0,
+          "mrr_at_8": 1.0,
+          "first_relevant_rank": 1,
+          "latency_ms": [
+            9.172,
+            8.519,
+            9.161
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "art_technology_jobs",
+          "returned": 8,
+          "hits": [
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:7",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 7,
+              "keyword_score": null,
+              "content_hash": "9784d7bdce070382bc7676d6b9006b70695031b4cb7382d1901a468b94f32282"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:9",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 9,
+              "keyword_score": null,
+              "content_hash": "7f8c8afc9a255c2e2287696d1a6308b89a59b1983ed2e6dca9f9332a8f20bfb0"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:5",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 5,
+              "keyword_score": null,
+              "content_hash": "652838e0f13e2011d8849b1657a5f93e0c09de7c061f3c5a21d17233bb9cc326"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:1",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 1,
+              "keyword_score": null,
+              "content_hash": "346b86e41984cd875b987e2974c6d23c9a03d50a0a69254d18780d2677390480"
+            },
+            {
+              "chunk_id": "ec8ff0e11f8b44e1a3f484418d2b52fc:4",
+              "title": "河北工业大学2026年本科招生简章之建筑与艺术设计学院",
+              "source_file": "河北工业大学2026年本科招生简章之建筑与艺术设计学院.txt",
+              "chunk": 4,
+              "keyword_score": null,
+              "content_hash": "1623120645e9d74a560b61b996699e185a50903af065fa1e2cb3e50022574915"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:8",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 8,
+              "keyword_score": null,
+              "content_hash": "026cfd09fd1bf72300d4dfbb02b4c8551f3f853ef503add7a1609afcc23034d0"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:12",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 12,
+              "keyword_score": null,
+              "content_hash": "1873992d6a32969459c59135f6b2adf569227f2e4cbeb15241a72d38b60a8a0d"
+            },
+            {
+              "chunk_id": "d6dfc61e57cf4b63ab9222e20c447076:2",
+              "title": "河北工业大学2026年本科招生简章之化工学院",
+              "source_file": "河北工业大学2026年本科招生简章之化工学院.txt",
+              "chunk": 2,
+              "keyword_score": null,
+              "content_hash": "3b9b2505e2b33428b8d4d29982fa63774b2e98bd133719113543cccd903b0cdb"
+            }
+          ],
+          "recall_at_8": 1.0,
+          "ndcg_at_8": 0.6309297535714575,
+          "mrr_at_8": 0.5,
+          "first_relevant_rank": 2,
+          "latency_ms": [
+            8.199,
+            8.883,
+            10.622
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2024_vehicle",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            7.167,
+            7.452,
+            8.357
+          ],
+          "stable_across_repeats": true
+        },
+        {
+          "case_id": "absent_2025_architecture",
+          "returned": 0,
+          "hits": [],
+          "empty_as_expected": true,
+          "latency_ms": [
+            7.76,
+            7.471,
+            7.45
+          ],
+          "stable_across_repeats": true
+        }
+      ]
+    }
+  ],
+  "limitations": "Small source-derived development sets, not an independent human-reviewed holdout. Pure vector retrieval with identical frozen documents/year filters/top-8; no reranker or hybrid tuning. No relevance threshold is calibrated; zero results only follow an empty year-filtered corpus. CPU timings are local component measurements, not production end-to-end latency. BGE-M3 was not run; live collections unchanged."
+}

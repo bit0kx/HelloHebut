@@ -1,0 +1,409 @@
+{
+  "mode": "offline_role_component_ablation",
+  "benchmark_id": "roles-synthetic-v1",
+  "dataset_sha256": "e4c96e59ae44e3bbd734a2e0086ef3e9a58863121b82d3d53198617f9303da82",
+  "limitations": "Scripted role results exercise routing, Composer and context limits only. No real model, retrieval, final answer verifier, model quality or production latency is measured. Logical role executions are not token costs; conflict detection is by explicit shared fact_key.",
+  "modes": {
+    "single": {
+      "cases": [
+        {
+          "case_id": "simple_policy",
+          "roles": [
+            {
+              "role": "policy",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "合成规则要求核对年度[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 15,
+          "component_latency_ms": 0.228
+        },
+        {
+          "case_id": "duplicate",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "合成专业位于测试校区[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 15,
+          "component_latency_ms": 0.04
+        },
+        {
+          "case_id": "conflicting_numbers",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "合成数据最低分为500[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 1,
+          "invalid_reference_count": 0,
+          "output_chars": 16,
+          "component_latency_ms": 0.024
+        },
+        {
+          "case_id": "helper_failure",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "历史数据仅供参考[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 13,
+          "component_latency_ms": 0.026
+        },
+        {
+          "case_id": "missing_fact",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "尚待核实：目标年份没有证据",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 13,
+          "component_latency_ms": 0.019
+        },
+        {
+          "case_id": "complementary",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "合成记录需要位次[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 13,
+          "component_latency_ms": 0.021
+        }
+      ],
+      "logical_role_executions": 6,
+      "duplicate_occurrences": 0,
+      "conflicting_values_exposed": 1,
+      "actual_model_calls": 0,
+      "actual_tool_calls": 0
+    },
+    "legacy_concat": {
+      "cases": [
+        {
+          "case_id": "simple_policy",
+          "roles": [
+            {
+              "role": "policy",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "合成规则要求核对年度[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 15,
+          "component_latency_ms": 0.102
+        },
+        {
+          "case_id": "duplicate",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            },
+            {
+              "role": "planning",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "legacy_concat",
+          "response": "合成专业位于测试校区[来源1]\n\n合成专业位于测试校区[来源2]",
+          "duplicate_occurrences": 1,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 32,
+          "component_latency_ms": 0.198
+        },
+        {
+          "case_id": "conflicting_numbers",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            },
+            {
+              "role": "planning",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "legacy_concat",
+          "response": "合成数据最低分为500[来源1]\n\n合成数据最低分为600[来源2]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 2,
+          "invalid_reference_count": 0,
+          "output_chars": 34,
+          "component_latency_ms": 0.082
+        },
+        {
+          "case_id": "helper_failure",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            },
+            {
+              "role": "planning",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "legacy_concat",
+          "response": "历史数据仅供参考[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 13,
+          "component_latency_ms": 0.064
+        },
+        {
+          "case_id": "missing_fact",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            },
+            {
+              "role": "planning",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "legacy_concat",
+          "response": "尚待核实：目标年份没有证据\n\n尚待核实：目标年份没有证据",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 28,
+          "component_latency_ms": 0.054
+        },
+        {
+          "case_id": "complementary",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": false
+            },
+            {
+              "role": "planning",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "legacy_concat",
+          "response": "合成记录需要位次[来源1]\n\n结合兴趣选择专业",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 23,
+          "component_latency_ms": 0.056
+        }
+      ],
+      "logical_role_executions": 11,
+      "duplicate_occurrences": 1,
+      "conflicting_values_exposed": 2,
+      "actual_model_calls": 0,
+      "actual_tool_calls": 0
+    },
+    "composed": {
+      "cases": [
+        {
+          "case_id": "simple_policy",
+          "roles": [
+            {
+              "role": "policy",
+              "structured": false
+            }
+          ],
+          "logical_role_executions": 1,
+          "status": "single",
+          "response": "合成规则要求核对年度[来源1]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 15,
+          "component_latency_ms": 0.091
+        },
+        {
+          "case_id": "duplicate",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": true
+            },
+            {
+              "role": "planning",
+              "structured": true
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "completed",
+          "response": "合成专业位于测试校区[来源1][来源2]",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 20,
+          "component_latency_ms": 5.957
+        },
+        {
+          "case_id": "conflicting_numbers",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": true
+            },
+            {
+              "role": "planning",
+              "structured": true
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "conflict",
+          "response": "相关结论存在冲突，暂不采用冲突内容，需要重新核对原始资料。",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 29,
+          "component_latency_ms": 0.148
+        },
+        {
+          "case_id": "helper_failure",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": true
+            },
+            {
+              "role": "planning",
+              "structured": true
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "partial",
+          "response": "历史数据仅供参考[来源1]\n\n部分分析未能完成，请补充条件或稍后重试。",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 35,
+          "component_latency_ms": 0.105
+        },
+        {
+          "case_id": "missing_fact",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": true
+            },
+            {
+              "role": "planning",
+              "structured": true
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "partial",
+          "response": "尚待核实：目标年份没有证据",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 13,
+          "component_latency_ms": 0.072
+        },
+        {
+          "case_id": "complementary",
+          "roles": [
+            {
+              "role": "risk",
+              "structured": true
+            },
+            {
+              "role": "planning",
+              "structured": true
+            }
+          ],
+          "logical_role_executions": 2,
+          "status": "completed",
+          "response": "合成记录需要位次[来源1]\n\n建议：结合兴趣选择专业",
+          "duplicate_occurrences": 0,
+          "conflicting_values_exposed": 0,
+          "invalid_reference_count": 0,
+          "output_chars": 26,
+          "component_latency_ms": 0.153
+        }
+      ],
+      "logical_role_executions": 11,
+      "duplicate_occurrences": 0,
+      "conflicting_values_exposed": 0,
+      "actual_model_calls": 0,
+      "actual_tool_calls": 0
+    }
+  },
+  "context_budget": {
+    "estimation_method": "utf8_bytes_upper_bound",
+    "estimated_input_tokens": 219,
+    "max_input_tokens": 400,
+    "history_turns_kept": 1,
+    "history_turns_dropped": 1,
+    "optional_rules_loaded": false
+  },
+  "checks": {
+    "at_most_two_roles": true,
+    "composed_duplicates_removed": true,
+    "conflict_values_withheld": true,
+    "conflict_explicit": true,
+    "helper_failure_explicit": true,
+    "references_within_current_evidence": true,
+    "required_context_preserved": true,
+    "old_history_turn_dropped": true
+  },
+  "passed": true,
+  "commit": "bcf800b5010391eac3b5792fe16ed65965a4aad2",
+  "source_hashes": {
+    "experiments/v2/scripts/role_ablation.py": "04260e69f85cad1581295ba7f9368d6c62df815649b3574e97b53548fafd1aa0",
+    "agents/agent_orchestrator.py": "c02d51f446c3a357bfdf82f139d4151173ab7a90d27478bd54bcb12e07c3c95a",
+    "agents/composer.py": "e2e6bc6b0c1d1f8d4da4f38e07d881c9e3ec21ebe33675121a077f6901019de0",
+    "agents/read_tools.py": "519217e91f544e2cc8087938768301616084e708fc351261794f02bfa6f549e7",
+    "core/context_budget.py": "2ee319f4bde1ec799ee42a06ea9afe6dca600811d962690e5becfef675371d0c",
+    "core/skill_loader.py": "a3752fce72a139bcb4979e209a3d1b3ce3bc7a194e426a32823e14dc0448a806"
+  }
+}

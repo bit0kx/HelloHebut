@@ -145,7 +145,6 @@ class PerformanceMonitor:
     def _setup_prometheus(self, port: int) -> None:
         self._prom = {
             "agent_success_rate": Gauge("agent_success_rate", "Agent 成功率", ["agent"]),
-            "agent_latency_ms":   Histogram("agent_latency_ms", "Agent 延迟", ["agent"]),
             "tool_success_rate":  Gauge("tool_success_rate", "工具成功率", ["tool"]),
             "requests_total":     Counter("requests_total", "总请求数"),
         }
@@ -209,7 +208,6 @@ class PerformanceMonitor:
             # Prometheus
             if "agent_success_rate" in self._prom:
                 self._prom["agent_success_rate"].labels(agent=agent_key).set(sr)
-                self._prom["agent_latency_ms"].labels(agent=agent_key).observe(ms)
 
             routing_penalties[agent_key] = self._routing_penalty(sr, ms)
 

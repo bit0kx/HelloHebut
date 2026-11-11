@@ -1,6 +1,7 @@
 """线上与评测共用的对话应用服务。"""
 import asyncio
 import json
+import inspect
 import logging
 import re
 import time
@@ -11,7 +12,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from agents.agent_orchestrator import AgentOrchestrator, Request
 from core.intent_recognizer import IntentCategory, IntentRecognizer
-from mcp.tool_manager import MCPToolManager
+from tooling.tool_manager import MCPToolManager
 from core.contracts import TaskState
 from core.task_state import merge_state, needs_admission
 from core.admission_answer import numeric_only, render_admission
@@ -78,6 +79,7 @@ class ChatService:
         agentic_rag: Optional[AgenticRAG] = None,
         trace_dir: Optional[str] = None,
         timeout_s: float = 50.0,
+        graph_enabled: bool = False,
     ):
         self._orchestrator = orchestrator
         self._memory = memory
@@ -89,6 +91,7 @@ class ChatService:
         self._rag = agentic_rag
         self._trace_dir = trace_dir
         self._timeout_s = timeout_s
+        self._graph_enabled = graph_enabled
 
     async def handle(
         self,
@@ -109,7 +112,7 @@ class ChatService:
         try:
             async with asyncio.timeout(self._timeout_s):
                 if turns is None:
-                    result, _ = await self._handle_turn(message, user_id, conv_id, TaskState(), run, request_id)
+                    result, _ = await self._execute_turn(message, user_id, conv_id, TaskState(), run, request_id)
                 else:
                     receipt = await turns.receipt(user_id, conv_id, request_id, message)
                     if receipt:
@@ -118,6 +121,9 @@ class ChatService:
                             await self._capture_preferences(user_id, conv_id, request_id, message)
                         return ChatResult(**receipt)
                     async with turns.guard(user_id, conv_id, lease_s=self._timeout_s + 10) as lease:
+                        # Recheck a durable task after acquiring the conversation
+                        # lease: clear may have cancelled it while it was queued.
+                        await run.emit_progress('running')
                         receipt = await turns.receipt(user_id, conv_id, request_id, message)
                         if receipt:
                             status = 'replayed'
@@ -134,19 +140,26 @@ class ChatService:
                             run.events.append({'stage': 'resume_computed_answer', 'source_run_id': result.trace_id})
                         else:
                             previous = await turns.state(user_id, conv_id)
-                            result, state = await self._handle_turn(message, user_id, conv_id, previous, run, request_id)
+                            result, state = await self._execute_turn(message, user_id, conv_id, previous, run, request_id,
+                                                                     turns=turns, lease=lease)
                             if getattr(turns, 'durable', False):
                                 with run.span('save_computed_answer'):
                                     await turns.save_checkpoint(user_id, conv_id, request_id, message,
                                         asdict(result), state, lease, memory_revision=run.memory_revision)
                         with run.span('commit'):
+                            # A queued task may have been cancelled while waiting
+                            # for this conversation's lease. Fence it before writing.
+                            await run.emit_progress('commit')
                             await turns.commit(user_id, conv_id, request_id, message, asdict(result), state, lease,
                                                memory_revision=run.memory_revision)
                     if update_profile:
                         await self._capture_preferences(user_id, conv_id, request_id, message)
                         queue = getattr(self._memory, 'maintenance', None)
                         if queue:
-                            queue.submit(user_id, conv_id)
+                            queued = (queue.submit(user_id, conv_id, request_id=request_id, message=message)
+                                      if getattr(queue, 'durable', False) else queue.submit(user_id, conv_id))
+                            if inspect.isawaitable(queued):
+                                await queued
                 status = result.status
                 return result
         finally:
@@ -156,7 +169,15 @@ class ChatService:
             except OSError:
                 logger.warning('Trace 写入失败: %s', run.run_id)
 
+    async def _execute_turn(self, message, user_id, conv_id, previous, run, request_id, *, turns=None, lease=None):
+        if self._graph_enabled:
+            from workflows.chat_graph import execute
+            return await execute(self, message, user_id, conv_id, previous, run, request_id, turns=turns, lease=lease)
+        return await self._handle_turn(message, user_id, conv_id, previous, run, request_id)
+
     async def _capture_preferences(self, user_id, conv_id, request_id, message):
+        if getattr(getattr(self._memory, 'turns', None), 'maintenance_outbox', None) is not None:
+            return  # Atomically queued capture runs under a conversation lease.
         capture = getattr(self._memory, 'capture_preferences', None)
         if capture:
             try:
@@ -283,6 +304,7 @@ class ChatService:
             intent=recognized.intent if recognized else None,
             urgency=recognized.urgency if recognized else None,
             entities=entities,
+            evidence=citations,
         )
         with run.span('answer'):
             result = await self._orchestrator.run(request)
@@ -376,7 +398,10 @@ class ChatService:
             await self._memory.clear_conversation(user_id, conv_id)
 
     async def _get_memory_context(self, user_id: str, conv_id: str, message: str):
-        if self._memory is None:
+        run = CURRENT_RUN.get()
+        if self._memory is None or (run is not None and not run.allow_long_term):
+            # A "read" of MySQL memory can initialize/migrate a conversation.
+            # Shadow requests must not touch the real store, including that path.
             return None
         return await self._memory.get_context(user_id, conv_id, query=message)
 

@@ -1,0 +1,45 @@
+{
+  "sdk": "2.3.0",
+  "transport": "stdio",
+  "handshake": "initialize/initialized",
+  "protocol_version": "2025-11-25",
+  "scope": "all_public_tools",
+  "tools": [
+    "knowledge_search",
+    "admission_data_query",
+    "data_version_stats"
+  ],
+  "checks": [
+    {
+      "tool": "knowledge_search",
+      "success": true,
+      "error": null,
+      "data_type": "list"
+    },
+    {
+      "tool": "admission_data_query",
+      "success": true,
+      "error": null,
+      "data_type": "dict"
+    },
+    {
+      "tool": "data_version_stats",
+      "success": true,
+      "public_data_unchanged": true
+    },
+    {
+      "rejected": "knowledge_search",
+      "success": true
+    },
+    {
+      "rejected": "request_evidence_read",
+      "success": true
+    },
+    {
+      "server_rejected_invalid_schema": true,
+      "success": true
+    }
+  ],
+  "success": true,
+  "elapsed_s": 2.534
+}

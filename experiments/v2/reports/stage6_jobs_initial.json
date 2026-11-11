@@ -1,0 +1,53 @@
+{
+  "mode": "real_mysql_isolated_jobs_and_asgi_fixtures",
+  "checks": [
+    {
+      "check": "enqueue_idempotency_owner_conflict_and_capacity",
+      "passed": true
+    },
+    {
+      "check": "lease_reclaim_rejects_old_worker_writes",
+      "passed": true
+    },
+    {
+      "check": "worker_recreation_resumes_durable_task",
+      "passed": true
+    },
+    {
+      "check": "automatic_retry_stops_after_three_attempts",
+      "passed": true
+    },
+    {
+      "check": "outbox_chat_receipt_and_messages_commit_atomically",
+      "passed": true
+    },
+    {
+      "check": "clear_cancels_and_redacts_jobs_atomically_without_revival",
+      "passed": true
+    },
+    {
+      "check": "authenticated_sse_final_only_answer_and_sequence_resume",
+      "passed": true
+    }
+  ],
+  "passed": 7,
+  "total": 7,
+  "limitations": "Deterministic handlers; real MySQL, leases, transaction rollback and SSE routes. Worker objects are recreated; this suite does not restart the API container.",
+  "source_sha256": {
+    "api/main.py": "4b6b1700d5a9bdbea1c5dc094fc4ad01b4a8413408fb8da1099d19e05be33419",
+    "api/memory_routes.py": "7e335eaa2e233559a81bd001f0ef367883fb5780154f431d135ed1bd69767ba2",
+    "api/task_routes.py": "ba5e6c6bfb14941cf1870cc77499fde2a813829467cdf66c7cfa5775037e026c",
+    "memory/conversation_memory.py": "bf26dbf7f3f3f330996e4b2e6dccfa8ef301f16ee74b4908c17d06f2dacd038b",
+    "memory/fact_store.py": "a63eedcc5afce52d9ff61097b059f72b26671f6a2e9577c3231fa6f75e87288b",
+    "memory/job_store.py": "291d91ed7812d3e39e7300662f6e3e29b526cab49cba6e1376385fa914b419cf",
+    "memory/migrations/001_facts.sql": "010d14926c2d969bc5bd9ae9e652cb5438a45acf8177075135d759de6108374a",
+    "memory/migrations/002_turns.sql": "4fa2e06bac91d7dad8fdc338ab9b99d2f0a3ee944748a38c4c8c35aaaa732e9b",
+    "memory/migrations/003_graph.sql": "b96e3150ab5b180f728cc8921dbce1afd72d63ced153c84ffa2d3044453cfa2f",
+    "memory/migrations/004_jobs.sql": "8b309fc77c2957cbf300d91935a41b8ee005c5d056d6d7c4522f3e50d3f67715",
+    "memory/mysql_database.py": "a78df2c42c58e79403d7060c1c511d350e46f54bd18b45d63c3fcfef7572045d",
+    "memory/mysql_turn_store.py": "baee36c693aa3c05c37eb143f42a76edcb567b604244044d2ce3e5b5e5eaa862",
+    "memory/preferences.py": "a801d4dccc062ea0c60ea40b5eead5dc4bdf6adbd233fb002534df1c2f7887a7",
+    "memory/turn_store.py": "b18a293088c88efb8d1f5463a45db67eb83c20417d03a7f101cab4647d0adba1"
+  },
+  "script_sha256": "a863b1c09b88a1eb6117418524fa6cf11bb2b4d5701defa50318e0fc00704f74"
+}

@@ -8,7 +8,7 @@ from dotenv import dotenv_values
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 from core.runtime import CURRENT_RUN, RunContext
-from mcp.tool_manager import MCPToolManager, Tool
+from tooling.tool_manager import MCPToolManager, Tool
 from rag.agentic import AgenticRAG
 
 

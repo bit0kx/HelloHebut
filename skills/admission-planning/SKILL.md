@@ -1,11 +1,11 @@
 ---
-name: 专业选择与发展规划规范
+name: admission-planning
 description: 专业内容、适合人群、专业比较、就业升学和志愿组合建议
-keywords:
-agents: planning
-enabled: true
+metadata:
+  version: "2.0.0"
+  agents: "planning"
+  tests: "test_skills_dynamic.py"
 ---
-
 # 专业选择与发展规划规范
 
 ## 处理范围

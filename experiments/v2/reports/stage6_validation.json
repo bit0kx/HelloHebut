@@ -1,0 +1,220 @@
+{
+  "mode": "stage6_final_validation",
+  "checked_at_utc": "2026-11-11T10:03:00.659467+00:00",
+  "base_commit": "bcf800b5010391eac3b5792fe16ed65965a4aad2",
+  "note": "Report source fingerprints identify the tested uncommitted implementation; this HEAD precedes the delivery commit.",
+  "reports": [
+    {
+      "report": "stage6_legacy.json",
+      "sha256": "e0a0bee3b22cc8419af6f828fbcc471ac8b2d91586041ad47f6382c4a08e4d79",
+      "passed": true,
+      "tests": 45,
+      "source_fingerprints_matched": 54,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_regression.json",
+      "sha256": "ea90a0dfff6bb2376e474015971d6c80c230fb1f6dec11f3a965a27c1f8700df",
+      "passed": true,
+      "tests": 119,
+      "source_fingerprints_matched": 62,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_memory.json",
+      "sha256": "74c392de8ff183a643cbb3f038d37dcb84ee2386fad59471a6dc9afbc2578e1c",
+      "passed": true,
+      "tests": 11,
+      "source_fingerprints_matched": 19,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_turns.json",
+      "sha256": "924743ca4e29c51fe474597e4e3580e1c3b5baea5affc277e3b4c2ead138a5ed",
+      "passed": true,
+      "tests": 12,
+      "source_fingerprints_matched": 23,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_graph.json",
+      "sha256": "c7eab3ae3d33bb8c4621c67fd981af8b6c39290378862f1ea6934763f156951f",
+      "passed": true,
+      "tests": 8,
+      "source_fingerprints_matched": 24,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_jobs.json",
+      "sha256": "cda2a4de8c38f79033084a387e04ccc84db1d119c18c91fe38dbe94f14c94460",
+      "passed": true,
+      "tests": 8,
+      "source_fingerprints_matched": 14,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_deployment.json",
+      "sha256": "a8f6d3cecfc6b8771a462647204153446e52845b143e73e0626f5fe3f5c5c8be",
+      "passed": true,
+      "tests": 7,
+      "source_fingerprints_matched": 31,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_task_http.json",
+      "sha256": "68abef095a28153e0b33e65bd07f7d0dfe37955ca7eecd8b9666e2b982054215",
+      "passed": true,
+      "tests": 2,
+      "source_fingerprints_matched": 2,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_frontend.json",
+      "sha256": "dc183e7de886475dc0f42b5ce456c6e5a77f3d0d488d723deba8d2a9e2858b5c",
+      "passed": true,
+      "tests": 11,
+      "source_fingerprints_matched": 0,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_mcp_protocol.json",
+      "sha256": "5bb5bbbd598595700776c79ca726620ed8b02c67fa3f4bcdd91bb7c18c947184",
+      "passed": true,
+      "tests": null,
+      "source_fingerprints_matched": 0,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_model_capability.json",
+      "sha256": "e91a7d93f02d8452c35f33c505bf7935f09adda8372081042925246fc402c079",
+      "passed": true,
+      "tests": null,
+      "source_fingerprints_matched": 6,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_roles.json",
+      "sha256": "0dbf34937b991e1527cd42ca3c1b1cb3008765d821274c13a1efd213f0ed66a4",
+      "passed": true,
+      "tests": null,
+      "source_fingerprints_matched": 6,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_restart.json",
+      "sha256": "76812c9822b01e84dab8a124b215aa0108bb3a664326388f6cc421d83d003157",
+      "passed": true,
+      "tests": null,
+      "source_fingerprints_matched": 6,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_embedding_ablation.json",
+      "sha256": "ffdcc5b64a4f7ea54fba768b5f1f65cef629733620b0687f290c080330f4c638",
+      "passed": true,
+      "tests": null,
+      "source_fingerprints_matched": 0,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_storage_retrieval.json",
+      "sha256": "071bc0f6a3b92ad3a10eb121bc7012294a650dad6dfb19fdd10e322172c78b20",
+      "passed": true,
+      "tests": 4,
+      "source_fingerprints_matched": 2,
+      "source_mismatches": []
+    },
+    {
+      "report": "stage6_review_validation.json",
+      "sha256": "9cc4b57441c7ace178750a3ae78a64dc875dcd72dca3277353bd1b6ca8933f13",
+      "passed": true,
+      "tests": null,
+      "source_fingerprints_matched": 0,
+      "source_mismatches": []
+    }
+  ],
+  "independent_review_gate_rejects_unapproved_drafts": true,
+  "runtime_source_count": 48,
+  "runtime_source_mismatches": [],
+  "runtime_source_sha256": {
+    "agents/agent_orchestrator.py": "c02d51f446c3a357bfdf82f139d4151173ab7a90d27478bd54bcb12e07c3c95a",
+    "agents/composer.py": "e2e6bc6b0c1d1f8d4da4f38e07d881c9e3ec21ebe33675121a077f6901019de0",
+    "agents/read_tools.py": "519217e91f544e2cc8087938768301616084e708fc351261794f02bfa6f549e7",
+    "api/main.py": "15860cd6ff86ddc7821d53bf9c93c4e23043084abf269931f52ee3a5f2f59d88",
+    "api/memory_routes.py": "7e335eaa2e233559a81bd001f0ef367883fb5780154f431d135ed1bd69767ba2",
+    "api/task_routes.py": "ba5e6c6bfb14941cf1870cc77499fde2a813829467cdf66c7cfa5775037e026c",
+    "core/admission_answer.py": "e6c4bad50c040dba7646f3fc50a63d71a8ed6212f67a4a52841f5a08753774b4",
+    "core/chat_service.py": "c09a5f9b087a089654d7006e48c270b87d2346c1f669993e1ae0bc1848ac5c8d",
+    "core/context_budget.py": "2ee319f4bde1ec799ee42a06ea9afe6dca600811d962690e5becfef675371d0c",
+    "core/contracts.py": "bb64261a2b8ac2dd1d6949b6976959677e764d5f554f9a6d13d265bc034978a8",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "c4391e732bd18c59c0db820bf4d61b8e59732409c0ef52dc317380833d967e53",
+    "core/runtime.py": "45d95e9579e3639de4cc3a0427ecde1398ba2ff0fab4f12c54feb7c43e538686",
+    "core/skill_loader.py": "a3752fce72a139bcb4979e209a3d1b3ce3bc7a194e426a32823e14dc0448a806",
+    "core/task_state.py": "7301b80e6b323c2167b18de171bea4833118a414f9f3a7142b0e1cec18ec44b8",
+    "evaluation/evaluator.py": "028e1197840773115566ec7935563ce3ffd4e4e6dcb202cc5e28bee8b1d6b66a",
+    "evaluation/manifest.py": "97c091419afd4a15e163d96278e011a487b55fff273e273895a68c257a22a438",
+    "memory/conversation_memory.py": "bf26dbf7f3f3f330996e4b2e6dccfa8ef301f16ee74b4908c17d06f2dacd038b",
+    "memory/fact_store.py": "a63eedcc5afce52d9ff61097b059f72b26671f6a2e9577c3231fa6f75e87288b",
+    "memory/job_store.py": "aa679dacf0daeb2ebc74513a9822ae473cfb9cb813b27c1072952358d8d1fed9",
+    "memory/mysql_database.py": "a78df2c42c58e79403d7060c1c511d350e46f54bd18b45d63c3fcfef7572045d",
+    "memory/mysql_turn_store.py": "baee36c693aa3c05c37eb143f42a76edcb567b604244044d2ce3e5b5e5eaa862",
+    "memory/preferences.py": "a801d4dccc062ea0c60ea40b5eead5dc4bdf6adbd233fb002534df1c2f7887a7",
+    "memory/turn_store.py": "b18a293088c88efb8d1f5463a45db67eb83c20417d03a7f101cab4647d0adba1",
+    "monitor/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "monitor/performance_monitor.py": "418f6da6d64f1008551f098ff05c3ec97cc7137f013d55540b38dd5aa2e6f77a",
+    "monitor/tracing.py": "5096301306ee2c2cccd91854f55185e697e44a97f7a7a92e075ffbf10b4ec390",
+    "rag/agentic.py": "d9282de8cb9c0fd2df51be73912f533f35186408bd6efc8e147337946d2ac6a4",
+    "tooling/__init__.py": "4e49884dc26427ec697d42c6ba4b48fd6f95fef45c966449e36e5904bce6cce2",
+    "tooling/admission_data.py": "75694595b07c378494fcd21a318555e3aa13172361532243c1e9f4c1901a182d",
+    "tooling/knowledge_base.py": "365649e9728f111fb43311b22928c4b0ded479e0fdff34308c35c5ce3ff292ce",
+    "tooling/knowledge_catalog.py": "8b82d2f78359b1252b4f97d984a3e26d63f21b7c185eb88c34a762461d3c1da3",
+    "tooling/knowledge_indexing.py": "b19461d4aba734ab04752b010c7bc0bd564ddc833e870cd250d3c10bd75a751d",
+    "tooling/lexical_retrieval.py": "8002a04b93df78f3626a723940acc83e3fd286c8baffb2693dd2ad81905ef0be",
+    "tooling/mcp_backend.py": "4d4b3eeae727db8a17cfb40e95929c2f3d038b600663a57f9a28c7c882f0c3ba",
+    "tooling/mcp_client.py": "71d4280ec67ff5cd154938bfc357d21b46cea725dbb40a4c2c57d36001fcacb7",
+    "tooling/mcp_contracts.py": "f143ae1f30bbd355042467c45162b584ec8f90b35a90406cd38b2db9cb9820d3",
+    "tooling/mcp_server.py": "b38741a853b3ec633ba68c361b0fe9ed0a1489ce19e2c22a8594a56478030ad5",
+    "tooling/tool_manager.py": "c313c1cd724259b2b3fcff09fd192a669a36dca1008f3f5fa271463228ed9bfa",
+    "workflows/__init__.py": "bb8ce9bfde08a49e6b8b847cf02f29ba61270dba74c2917f3ed51366f4f3a6ff",
+    "workflows/chat_graph.py": "911ea41162871e359b841a0ace50307e3f5462db1664669b25490adc2386f5bc",
+    "workflows/checkpoints.py": "8addc099e448d5ce5c684f98f3d67a73130dc737c796a52a62b2c8f8cd62e460",
+    "workflows/versioning.py": "2b46a2737c383e1857e62a0480938b86933d4c749abb0b65fcf6965babd1c529",
+    "memory/migrations/001_facts.sql": "010d14926c2d969bc5bd9ae9e652cb5438a45acf8177075135d759de6108374a",
+    "memory/migrations/002_turns.sql": "4fa2e06bac91d7dad8fdc338ab9b99d2f0a3ee944748a38c4c8c35aaaa732e9b",
+    "memory/migrations/003_graph.sql": "b96e3150ab5b180f728cc8921dbce1afd72d63ced153c84ffa2d3044453cfa2f",
+    "memory/migrations/004_jobs.sql": "8b309fc77c2957cbf300d91935a41b8ee005c5d056d6d7c4522f3e50d3f67715",
+    "requirements.txt": "b9db2b9eea77738b84e4079fe466553d171958782147ac6ae63642c831a62e17"
+  },
+  "frontend_assets": [
+    {
+      "path": "/assets/index-DZBrCcqI.css",
+      "sha256": "2f75d8e5fe9cb4060648446f530d24ef07adc641e6f58a7c0b66e00655755fe6",
+      "served_bytes_match": true
+    },
+    {
+      "path": "/assets/index-U2GEfPps.js",
+      "sha256": "c2216f0e9a96fd5df6e03cb834cc244033bdeacf6e373de0a8ad350df43b02dc",
+      "served_bytes_match": true
+    },
+    {
+      "path": "/index.html",
+      "sha256": "e10da50599b66168c9e816b919cb26b856bb392ac50fda6f5e30deed93190596",
+      "served_bytes_match": true
+    }
+  ],
+  "container_dependencies_consistent": true,
+  "build_mode": "reused_local_base",
+  "remaining_acceptance": [
+    "Independent human references and Judge calibration",
+    "Real Langfuse project connection",
+    "Browser visual inspection",
+    "Clean standard Docker build blocked by configured mirror metadata validation"
+  ],
+  "limitations": [
+    "Functional checks and development retrieval comparisons are not independent accuracy results.",
+    "Anonymous identity expires after 24h; graph/job/chat records have no scheduled retention cleanup.",
+    "Checkpoint recovery can repeat an interrupted external call; MySQL turn commit is idempotent."
+  ],
+  "passed": true
+}

@@ -13,7 +13,7 @@ from core.chat_service import ChatService
 from core.contracts import EvidenceVerdict
 from core.intent_recognizer import IntentCategory, IntentResult, UrgencyLevel
 from core.runtime import RequestConflict, BudgetExceeded
-from mcp.admission_data import AdmissionDataStore
+from tooling.admission_data import AdmissionDataStore
 from memory.turn_store import TurnStore
 from rag.agentic import AgenticRAG
 from redis_support import RedisProcess

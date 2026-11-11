@@ -1,0 +1,72 @@
+{
+  "mode": "real_mysql_langgraph_isolated_fixtures",
+  "checks": [
+    {
+      "check": "six_node_boundaries_resume_without_repeating_completed_nodes",
+      "passed": true,
+      "boundaries": 6,
+      "previous_nodes_rerun": 0
+    },
+    {
+      "check": "budget_reserved_before_external_call_and_preserved_on_resume",
+      "passed": true
+    },
+    {
+      "check": "checkpoint_pending_write_contract_and_scope",
+      "passed": true
+    },
+    {
+      "check": "lease_fences_checkpoint_writes",
+      "passed": true
+    },
+    {
+      "check": "version_ttl_and_task_revision_invalidate_old_graph",
+      "passed": true
+    },
+    {
+      "check": "retry_does_not_reset_exhausted_budget",
+      "passed": true
+    },
+    {
+      "check": "clear_removes_all_graph_state",
+      "passed": true
+    },
+    {
+      "check": "hard_process_exit_resumes_fenced_checkpoint",
+      "passed": true,
+      "crashed_process_exit_code": 73,
+      "resumed_model_calls": 4,
+      "resumed_tool_calls": 1
+    }
+  ],
+  "passed": 8,
+  "total": 8,
+  "limitations": "Deterministic model/tool fixtures, real LangGraph and MySQL. Includes os._exit and a fresh Python process; an interrupted external call may be repeated. No hidden reasoning or pickle serialization.",
+  "source_sha256": {
+    "workflows/__init__.py": "bb8ce9bfde08a49e6b8b847cf02f29ba61270dba74c2917f3ed51366f4f3a6ff",
+    "workflows/chat_graph.py": "911ea41162871e359b841a0ace50307e3f5462db1664669b25490adc2386f5bc",
+    "workflows/checkpoints.py": "8addc099e448d5ce5c684f98f3d67a73130dc737c796a52a62b2c8f8cd62e460",
+    "workflows/versioning.py": "2b46a2737c383e1857e62a0480938b86933d4c749abb0b65fcf6965babd1c529",
+    "memory/conversation_memory.py": "bf26dbf7f3f3f330996e4b2e6dccfa8ef301f16ee74b4908c17d06f2dacd038b",
+    "memory/fact_store.py": "a63eedcc5afce52d9ff61097b059f72b26671f6a2e9577c3231fa6f75e87288b",
+    "memory/job_store.py": "aa679dacf0daeb2ebc74513a9822ae473cfb9cb813b27c1072952358d8d1fed9",
+    "memory/migrations/001_facts.sql": "010d14926c2d969bc5bd9ae9e652cb5438a45acf8177075135d759de6108374a",
+    "memory/migrations/002_turns.sql": "4fa2e06bac91d7dad8fdc338ab9b99d2f0a3ee944748a38c4c8c35aaaa732e9b",
+    "memory/migrations/003_graph.sql": "b96e3150ab5b180f728cc8921dbce1afd72d63ced153c84ffa2d3044453cfa2f",
+    "memory/migrations/004_jobs.sql": "8b309fc77c2957cbf300d91935a41b8ee005c5d056d6d7c4522f3e50d3f67715",
+    "memory/mysql_database.py": "a78df2c42c58e79403d7060c1c511d350e46f54bd18b45d63c3fcfef7572045d",
+    "memory/mysql_turn_store.py": "baee36c693aa3c05c37eb143f42a76edcb567b604244044d2ce3e5b5e5eaa862",
+    "memory/preferences.py": "a801d4dccc062ea0c60ea40b5eead5dc4bdf6adbd233fb002534df1c2f7887a7",
+    "memory/turn_store.py": "b18a293088c88efb8d1f5463a45db67eb83c20417d03a7f101cab4647d0adba1",
+    "core/admission_answer.py": "e6c4bad50c040dba7646f3fc50a63d71a8ed6212f67a4a52841f5a08753774b4",
+    "core/chat_service.py": "c09a5f9b087a089654d7006e48c270b87d2346c1f669993e1ae0bc1848ac5c8d",
+    "core/context_budget.py": "2ee319f4bde1ec799ee42a06ea9afe6dca600811d962690e5becfef675371d0c",
+    "core/contracts.py": "bb64261a2b8ac2dd1d6949b6976959677e764d5f554f9a6d13d265bc034978a8",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "c4391e732bd18c59c0db820bf4d61b8e59732409c0ef52dc317380833d967e53",
+    "core/runtime.py": "45d95e9579e3639de4cc3a0427ecde1398ba2ff0fab4f12c54feb7c43e538686",
+    "core/skill_loader.py": "a3752fce72a139bcb4979e209a3d1b3ce3bc7a194e426a32823e14dc0448a806",
+    "core/task_state.py": "7301b80e6b323c2167b18de171bea4833118a414f9f3a7142b0e1cec18ec44b8"
+  },
+  "script_sha256": "4cd51287aac5438523781b756c1c67ce7d34b462555105906c79df75487b0f83"
+}

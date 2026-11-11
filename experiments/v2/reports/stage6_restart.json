@@ -1,0 +1,22 @@
+{
+  "mode": "mysql_and_app_restart",
+  "passed": true,
+  "cleaned": true,
+  "error_type": "",
+  "duration_s": 10.33,
+  "source_sha256": {
+    "memory/fact_store.py": "a63eedcc5afce52d9ff61097b059f72b26671f6a2e9577c3231fa6f75e87288b",
+    "memory/mysql_database.py": "a78df2c42c58e79403d7060c1c511d350e46f54bd18b45d63c3fcfef7572045d",
+    "memory/mysql_turn_store.py": "baee36c693aa3c05c37eb143f42a76edcb567b604244044d2ce3e5b5e5eaa862",
+    "memory/migrations/001_facts.sql": "010d14926c2d969bc5bd9ae9e652cb5438a45acf8177075135d759de6108374a",
+    "memory/migrations/002_turns.sql": "4fa2e06bac91d7dad8fdc338ab9b99d2f0a3ee944748a38c4c8c35aaaa732e9b",
+    "core/chat_service.py": "c09a5f9b087a089654d7006e48c270b87d2346c1f669993e1ae0bc1848ac5c8d"
+  },
+  "checks": [
+    "preference_survives_restart",
+    "computed_answer_resumes_without_generation",
+    "replayed_receipt_has_original_trace",
+    "one_committed_turn"
+  ],
+  "limitations": "Isolated fixtures survive a real MySQL/application restart. Recovery is limited to the post-generation boundary; not LangGraph or internal retrieval-node recovery."
+}

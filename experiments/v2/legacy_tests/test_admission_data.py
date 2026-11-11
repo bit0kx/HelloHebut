@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from mcp.admission_data import AdmissionDataStore
+from tooling.admission_data import AdmissionDataStore
 
 
 class AdmissionDataStoreTests(unittest.TestCase):

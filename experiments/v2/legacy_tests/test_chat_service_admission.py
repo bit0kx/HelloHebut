@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from agents.agent_orchestrator import AgentType
 from core.chat_service import ChatService
 from core.intent_recognizer import IntentCategory, IntentResult, UrgencyLevel
-from mcp.admission_data import AdmissionDataStore
+from tooling.admission_data import AdmissionDataStore
 
 
 class FakeRecognizer:

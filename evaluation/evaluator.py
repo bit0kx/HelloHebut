@@ -1,4 +1,5 @@
 """河北工业大学本科报考咨询的意图与端到端评测。"""
+import hashlib
 import json
 import logging
 import math
@@ -373,9 +374,14 @@ class EndToEndEvaluator:
         questions = self._dialog_turns(case)
         if not questions:
             return []
-        suffix = uuid.uuid4().hex[:8]
-        user_id = str(case.get("user_id") or f"eval_user_{suffix}")
-        conv_id = str(case.get("conv_id") or f"eval_{case_index}_{suffix}")
+        # Case IDs describe a logical scenario, never a reusable storage identity.
+        # Every execution (including concurrent jobs or retries) receives its own
+        # namespace, while all turns and cleanup within this case share it.
+        prefix = f"eval_{uuid.uuid4().hex}"
+        logical_user = str(case.get("user_id") or "default")
+        logical_conversation = str(case.get("conv_id") or f"case_{case_index}")
+        user_id = f"{prefix}_u_{hashlib.sha256(logical_user.encode('utf-8')).hexdigest()[:16]}"
+        conv_id = f"{prefix}_c_{hashlib.sha256(logical_conversation.encode('utf-8')).hexdigest()[:16]}"
         history: List[Dict[str, str]] = []
         results: List[EvalResult] = []
         await self._chat_service.clear_conversation(user_id, conv_id)

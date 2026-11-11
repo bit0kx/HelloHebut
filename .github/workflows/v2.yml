@@ -1,0 +1,154 @@
+name: v2 regression and durable storage
+
+on:
+  push:
+    branches: [main, master, v2]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v2-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: hellohebut_ci
+          MYSQL_USER: hellohebut_ci
+          MYSQL_PASSWORD: ci-fixture-password
+          MYSQL_ROOT_PASSWORD: ci-fixture-root
+        ports:
+          - 13306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h127.0.0.1 -uroot -pci-fixture-root"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 16379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      PYTHONUNBUFFERED: '1'
+      PYTHONDONTWRITEBYTECODE: '1'
+      ANONYMIZED_TELEMETRY: 'FALSE'
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: '13306'
+      MYSQL_DATABASE: hellohebut_ci
+      MYSQL_USER: hellohebut_ci
+      MYSQL_PASSWORD: ci-fixture-password
+      REDIS_URL: redis://127.0.0.1:16379/0
+      V2_FACT_DATABASE_URL: ''
+      # Tests inject deterministic clients. No model credentials or repository
+      # secrets are used; service passwords exist only in this ephemeral job.
+      ANTHROPIC_API_KEY: ''
+      DEEPSEEK_API_KEY: ''
+      LANGFUSE_HOST: ''
+      LANGFUSE_PUBLIC_KEY: ''
+      LANGFUSE_SECRET_KEY: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies and isolated Redis executable
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends redis-server
+          python -m pip install -r requirements.txt
+          python -m pip check
+          mkdir -p experiments/v2/reports/ci
+          python -m pip freeze > experiments/v2/reports/ci/dependencies.txt
+      - name: Offline legacy and v2 regressions with zero skipped tests
+        run: |
+          python experiments/v2/scripts/run_tests.py --suite experiments/v2/legacy_tests --report experiments/v2/reports/ci/legacy.json
+          python experiments/v2/scripts/run_tests.py --suite experiments/v2/tests --report experiments/v2/reports/ci/v2.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ('legacy', 'v2'):
+              report = json.loads(Path(f'experiments/v2/reports/ci/{name}.json').read_text())
+              assert report['success'] and report['tests'] > 0, report
+              assert report['skipped'] == 0, report['skip_reasons']
+              assert report['failures'] == report['errors'] == 0, report
+          PY
+      - name: Real MySQL fact, turn, graph and job checks
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          import subprocess
+          import sys
+
+          reports = Path('experiments/v2/reports/ci')
+          commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          failed = []
+          for name in ('fact_store_checks', 'turn_store_checks', 'graph_checks', 'job_checks'):
+              script = Path(f'experiments/v2/scripts/{name}.py')
+              result = subprocess.run([sys.executable, str(script), '--inside'], text=True,
+                                      capture_output=True, timeout=240)
+              (reports / f'{name}.log').write_text(result.stdout + '\n' + result.stderr, encoding='utf-8')
+              try:
+                  report = json.loads(result.stdout.strip().splitlines()[-1])
+                  report.update(commit=commit, script_sha256=hashlib.sha256(script.read_bytes()).hexdigest())
+                  (reports / f'{name}.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
+                  assert result.returncode == 0, result.returncode
+                  assert report['total'] > 0 and report['passed'] == report['total'], report
+                  assert len(report['checks']) == report['total'] and all(item['passed'] for item in report['checks']), report
+                  print(f"{name}: {report['passed']}/{report['total']}")
+              except (AssertionError, ValueError, IndexError, KeyError) as exc:
+                  failed.append(name)
+                  print(f'{name} failed: {type(exc).__name__}\n{result.stdout}\n{result.stderr}')
+          if failed:
+              raise SystemExit('Failed database suites: ' + ', '.join(failed))
+          PY
+      - name: Preserve regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-backend-${{ github.sha }}
+          path: experiments/v2/reports/ci/
+          if-no-files-found: warn
+          retention-days: 14
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend from lockfile
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Frontend disconnect and resume fixtures
+        run: node experiments/v2/scripts/frontend_checks.mjs
+      - name: Preserve frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: v2-frontend-${{ github.sha }}
+          path: frontend/dist/
+          if-no-files-found: error
+          retention-days: 14

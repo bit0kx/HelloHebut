@@ -244,6 +244,25 @@ label {
 
 .actions button:nth-child(2),
 .inline-form button,
+.conditions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  color: #465569;
+  font-size: 13px;
+}
+
+.conditions-bar button {
+  border: 1px solid #c8d7e6;
+  background: #f3f7fb;
+  color: #294e74;
+  border-radius: 16px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
 .file-button {
   background: #e7eef7;
   color: #18202c;

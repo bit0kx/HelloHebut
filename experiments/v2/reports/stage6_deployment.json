@@ -1,0 +1,108 @@
+{
+  "mode": "live_container_http_smoke",
+  "build_mode": "reused_local_base",
+  "commit": "bcf800b5010391eac3b5792fe16ed65965a4aad2",
+  "source_hashes": {
+    "core/admission_answer.py": "e6c4bad50c040dba7646f3fc50a63d71a8ed6212f67a4a52841f5a08753774b4",
+    "core/chat_service.py": "c09a5f9b087a089654d7006e48c270b87d2346c1f669993e1ae0bc1848ac5c8d",
+    "core/context_budget.py": "2ee319f4bde1ec799ee42a06ea9afe6dca600811d962690e5becfef675371d0c",
+    "core/contracts.py": "bb64261a2b8ac2dd1d6949b6976959677e764d5f554f9a6d13d265bc034978a8",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "c4391e732bd18c59c0db820bf4d61b8e59732409c0ef52dc317380833d967e53",
+    "core/runtime.py": "45d95e9579e3639de4cc3a0427ecde1398ba2ff0fab4f12c54feb7c43e538686",
+    "core/skill_loader.py": "a3752fce72a139bcb4979e209a3d1b3ce3bc7a194e426a32823e14dc0448a806",
+    "core/task_state.py": "7301b80e6b323c2167b18de171bea4833118a414f9f3a7142b0e1cec18ec44b8",
+    "tooling/__init__.py": "4e49884dc26427ec697d42c6ba4b48fd6f95fef45c966449e36e5904bce6cce2",
+    "tooling/admission_data.py": "75694595b07c378494fcd21a318555e3aa13172361532243c1e9f4c1901a182d",
+    "tooling/knowledge_base.py": "365649e9728f111fb43311b22928c4b0ded479e0fdff34308c35c5ce3ff292ce",
+    "tooling/knowledge_catalog.py": "8b82d2f78359b1252b4f97d984a3e26d63f21b7c185eb88c34a762461d3c1da3",
+    "tooling/knowledge_indexing.py": "b19461d4aba734ab04752b010c7bc0bd564ddc833e870cd250d3c10bd75a751d",
+    "tooling/lexical_retrieval.py": "8002a04b93df78f3626a723940acc83e3fd286c8baffb2693dd2ad81905ef0be",
+    "tooling/mcp_backend.py": "4d4b3eeae727db8a17cfb40e95929c2f3d038b600663a57f9a28c7c882f0c3ba",
+    "tooling/mcp_client.py": "71d4280ec67ff5cd154938bfc357d21b46cea725dbb40a4c2c57d36001fcacb7",
+    "tooling/mcp_contracts.py": "f143ae1f30bbd355042467c45162b584ec8f90b35a90406cd38b2db9cb9820d3",
+    "tooling/mcp_server.py": "b38741a853b3ec633ba68c361b0fe9ed0a1489ce19e2c22a8594a56478030ad5",
+    "tooling/tool_manager.py": "c313c1cd724259b2b3fcff09fd192a669a36dca1008f3f5fa271463228ed9bfa",
+    "memory/conversation_memory.py": "bf26dbf7f3f3f330996e4b2e6dccfa8ef301f16ee74b4908c17d06f2dacd038b",
+    "memory/fact_store.py": "a63eedcc5afce52d9ff61097b059f72b26671f6a2e9577c3231fa6f75e87288b",
+    "memory/job_store.py": "aa679dacf0daeb2ebc74513a9822ae473cfb9cb813b27c1072952358d8d1fed9",
+    "memory/mysql_database.py": "a78df2c42c58e79403d7060c1c511d350e46f54bd18b45d63c3fcfef7572045d",
+    "memory/mysql_turn_store.py": "baee36c693aa3c05c37eb143f42a76edcb567b604244044d2ce3e5b5e5eaa862",
+    "memory/preferences.py": "a801d4dccc062ea0c60ea40b5eead5dc4bdf6adbd233fb002534df1c2f7887a7",
+    "memory/turn_store.py": "b18a293088c88efb8d1f5463a45db67eb83c20417d03a7f101cab4647d0adba1",
+    "rag/agentic.py": "d9282de8cb9c0fd2df51be73912f533f35186408bd6efc8e147337946d2ac6a4",
+    "api/main.py": "15860cd6ff86ddc7821d53bf9c93c4e23043084abf269931f52ee3a5f2f59d88",
+    "api/memory_routes.py": "7e335eaa2e233559a81bd001f0ef367883fb5780154f431d135ed1bd69767ba2",
+    "api/task_routes.py": "ba5e6c6bfb14941cf1870cc77499fde2a813829467cdf66c7cfa5775037e026c"
+  },
+  "checks": [
+    {
+      "check": "health_frontend_proxy_and_auth",
+      "passed": true,
+      "duration_s": 0.094
+    },
+    {
+      "check": "actual_onnx_embedding_and_chroma_query",
+      "passed": true,
+      "onnxruntime": "1.27.0",
+      "chroma": "0.5.23",
+      "dimensions": 384,
+      "documents": 410,
+      "vector_results": 3,
+      "retrieval_config": {
+        "lexical": "filtered_legacy",
+        "fusion": "balanced"
+      },
+      "runtime_source_sha256": {
+        "api/main.py": "15860cd6ff86ddc7821d53bf9c93c4e23043084abf269931f52ee3a5f2f59d88",
+        "tooling/knowledge_base.py": "365649e9728f111fb43311b22928c4b0ded479e0fdff34308c35c5ce3ff292ce",
+        "tooling/lexical_retrieval.py": "8002a04b93df78f3626a723940acc83e3fd286c8baffb2693dd2ad81905ef0be"
+      },
+      "duration_s": 2.406
+    },
+    {
+      "check": "live_csv_chat_replay_and_conflict",
+      "passed": true,
+      "status": "completed",
+      "verified": true,
+      "citation_count": 1,
+      "idempotent_replay": true,
+      "duration_s": 10.031
+    },
+    {
+      "check": "live_candidate_scope_change",
+      "passed": true,
+      "status": "clarification",
+      "old_rank_invalidated": true,
+      "duration_s": 5.484
+    },
+    {
+      "check": "live_rag_verified_accommodation_answer",
+      "passed": true,
+      "status": "completed",
+      "verified": true,
+      "citation_count": 1,
+      "duration_s": 13.922
+    },
+    {
+      "check": "live_rag_verified_campus_answer",
+      "passed": true,
+      "status": "completed",
+      "verified": true,
+      "citation_count": 1,
+      "all_three_campuses": true,
+      "duration_s": 16.516
+    },
+    {
+      "check": "live_rag_missing_tuition_rates_abstain",
+      "passed": true,
+      "status": "insufficient_evidence",
+      "verified": false,
+      "stop_reason": "no_new_evidence",
+      "duration_s": 15.484
+    }
+  ],
+  "passed": 7,
+  "total": 7,
+  "limitations": "Small functional smoke; no statistical answer-quality claim. Local-base reuse does not validate a clean standard Dockerfile build."
+}

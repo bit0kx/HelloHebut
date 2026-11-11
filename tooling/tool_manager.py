@@ -13,6 +13,7 @@
   5. 降级策略（Fallback）—— 工具不可用时返回有意义的降级结果。
 """
 import asyncio
+from copy import deepcopy
 import hashlib
 import json
 import logging
@@ -93,7 +94,7 @@ class CircuitBreaker:
                 self.state = CircuitState.HALF_OPEN
                 return True
             return False
-        return True  # HALF_OPEN：放行一次探测
+        return False  # HALF_OPEN：放行一次探测
 
     def record_success(self) -> None:
         self.fail_count = 0
@@ -101,7 +102,7 @@ class CircuitBreaker:
 
     def record_failure(self) -> None:
         self.fail_count += 1
-        if self.fail_count >= self.threshold:
+        if self.state == CircuitState.HALF_OPEN or self.fail_count >= self.threshold:
             self.state     = CircuitState.OPEN
             self.opened_at = time.monotonic()
             logger.warning(f"熔断器打开（连续失败 {self.fail_count} 次）")
@@ -122,6 +123,7 @@ class Tool:
     read_only: bool = True
     allowed_agents: tuple[str, ...] = ()
     cache_scope: Optional[Callable] = None
+    max_result_bytes: int = 128 * 1024
 
     # 运行时状态（不参与构造）
     stats:   ToolStats    = field(default_factory=ToolStats, init=False)
@@ -159,8 +161,38 @@ class MCPToolManager:
 
     def register(self, tool: Tool) -> None:
         Draft202012Validator.check_schema(tool.schema)
+        if tool.max_result_bytes < 1024 or tool.timeout_s <= 0:
+            raise ValueError("invalid_tool_limits")
         self._tools[tool.name] = tool
         logger.info(f"注册工具: {tool.name}")
+
+    def schemas_for(self, agent_type: str, *, read_only: bool = True) -> List[Dict[str, Any]]:
+        """Export copied schemas only for tools the program-selected role may use."""
+        return [{"name": tool.name, "description": tool.description,
+                 "input_schema": deepcopy(tool.schema)}
+                for tool in self._tools.values()
+                if (not read_only or tool.read_only)
+                and (not tool.allowed_agents or agent_type in tool.allowed_agents)]
+
+    async def call_read_only(self, name: str, params: Dict[str, Any], agent_type: str,
+                             context: Optional[Dict[str, Any]] = None) -> ToolResult:
+        tool = self._tools.get(name)
+        if not tool or not tool.read_only:
+            return ToolResult(False, None, name, error="tool_not_allowed")
+        trusted_context = dict(context or {})
+        trusted_context["agent_type"] = agent_type
+        # Role-loop context may contain request-private evidence or skill state.
+        # Never reuse a parameter-only cache across those contexts.
+        return await self.call(name, params, trusted_context, use_cache=False)
+
+    @staticmethod
+    def _check_output(tool: Tool, data: Any) -> None:
+        try:
+            raw = json.dumps(data, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        except (TypeError, ValueError) as exc:
+            raise ValueError("invalid_tool_result") from exc
+        if len(raw) > tool.max_result_bytes:
+            raise ValueError("tool_result_too_large")
 
     def unregister(self, name: str) -> None:
         self._tools.pop(name, None)
@@ -194,6 +226,7 @@ class MCPToolManager:
         run = CURRENT_RUN.get()
         if run:
             run.consume('tool')
+            await run.persist_usage()
             run.events.append({'stage': 'tool_call', 'tool': name,
                                'argument_keys': sorted(params), 'read_only': tool.read_only})
 
@@ -207,6 +240,10 @@ class MCPToolManager:
         if use_cache and tool.cache_ttl > 0:
             cached = self._get_cache(cache_name, params)
             if cached is not None:
+                try:
+                    self._check_output(tool, cached)
+                except ValueError as exc:
+                    return ToolResult(False, None, name, error=str(exc))
                 tool.stats.total += 1
                 tool.stats.success += 1
                 return ToolResult(success=True, data=cached, tool_name=name, cached=True)
@@ -221,6 +258,7 @@ class MCPToolManager:
         tool.stats.total += 1
         try:
             data = await asyncio.wait_for(tool.handler(params, context), timeout=tool.timeout_s)
+            self._check_output(tool, data)
             latency = (time.monotonic() - t0) * 1000
 
             tool.stats.success += 1
@@ -229,7 +267,7 @@ class MCPToolManager:
             tool.breaker.record_success()
 
             # 写缓存
-            if tool.cache_ttl > 0 and cache_generation == self._cache_generation:
+            if use_cache and tool.cache_ttl > 0 and cache_generation == self._cache_generation:
                 self._set_cache(cache_name, params, data, tool.cache_ttl)
 
             # 重排（针对返回列表的检索工具）
@@ -237,11 +275,14 @@ class MCPToolManager:
             if rerank_top_k > 0 and tool.supports_rerank and isinstance(data, list):
                 query = params.get("query", "")
                 data, reranked = await self._rerank(query, data, rerank_top_k), True
+                self._check_output(tool, data)
 
             return ToolResult(success=True, data=data, tool_name=name,
                               latency_ms=latency, reranked=reranked)
 
-        except BudgetExceeded:
+        except (BudgetExceeded, asyncio.CancelledError):
+            if tool.breaker.state == CircuitState.HALF_OPEN:
+                tool.breaker.record_failure()
             raise
         except asyncio.TimeoutError:
             tool.stats.failed += 1
@@ -254,8 +295,9 @@ class MCPToolManager:
             tool.stats.failed += 1
             tool.stats.consecutive_fails += 1
             tool.breaker.record_failure()
-            logger.error(f"工具异常: {name} — {ex}")
-            return await self._fallback_result(tool, params, context, str(ex))
+            logger.error("tool_failed name=%s type=%s", name, type(ex).__name__)
+            error = str(ex) if str(ex) in {"tool_result_too_large", "invalid_tool_result"} else "tool_execution_failed"
+            return await self._fallback_result(tool, params, context, error)
 
     async def _fallback_result(
         self,
@@ -270,7 +312,8 @@ class MCPToolManager:
         try:
             data = tool.fallback(params, context, error)
             if asyncio.iscoroutine(data):
-                data = await data
+                data = await asyncio.wait_for(data, timeout=tool.timeout_s)
+            self._check_output(tool, data)
             return ToolResult(
                 success=True,
                 data=data,
@@ -278,8 +321,10 @@ class MCPToolManager:
                 error=error,
             )
         except Exception as ex:
-            logger.error(f"工具降级失败: {tool.name} — {ex}")
-            return ToolResult(success=False, data=None, tool_name=tool.name, error=f"{error}; fallback失败: {ex}")
+            logger.error("tool_fallback_failed name=%s type=%s", tool.name, type(ex).__name__)
+            return ToolResult(success=False, data=None, tool_name=tool.name,
+                              error=str(ex) if str(ex) in {"tool_result_too_large", "invalid_tool_result"}
+                              else "tool_fallback_failed")
 
     # ── 查询改写（解决召回不全）────────────────────────────────────────────────
 
@@ -330,7 +375,7 @@ class MCPToolManager:
             # 原始查询也保留，去重
             return list(dict.fromkeys([query] + queries))
         except Exception as ex:
-            logger.warning(f"查询改写失败，使用原始查询: {ex}")
+            logger.warning("query_rewrite_failed type=%s", type(ex).__name__)
             return [query]
 
     async def search_with_rewrite(
@@ -349,7 +394,7 @@ class MCPToolManager:
         # 1. 查询改写：生成多角度子查询
         tool = self._tools.get(tool_name)
         sub_queries = await self.rewrite_query(query, n=3, scope=tool.description if tool else "")
-        logger.info(f"查询改写: {query!r} → {sub_queries}")
+        logger.info("query_rewrite count=%d", len(sub_queries))
 
         # 2. 并行召回：所有子查询同时检索
         recall_k = max(top_k * 6, 30)
@@ -437,7 +482,7 @@ class MCPToolManager:
             ranked.sort(key=lambda value: (-value[0], value[1]))
             return [item for _, _, item in ranked[:top_k]]
         except Exception as ex:
-            logger.warning(f"重排失败，安全返回空结果: {ex}")
+            logger.warning("rerank_failed type=%s", type(ex).__name__)
             return []
 
     @staticmethod

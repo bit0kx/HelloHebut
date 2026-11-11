@@ -239,6 +239,6 @@ if __name__ == '__main__':
         report['source_sha256'] = {str(p.relative_to(root).as_posix()): hashlib.sha256(p.read_bytes()).hexdigest()
                                   for folder in ('memory', 'core', 'api') for p in sorted((root/folder).rglob('*.py'))}
         report['migration_sha256'] = hashlib.sha256((root/'memory/migrations/001_facts.sql').read_bytes()).hexdigest()
-        (root/'experiments/v2/reports/stage5_memory.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+        (root/'experiments/v2/reports/stage6_memory.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
         print(json.dumps({k: report[k] for k in ('passed', 'total', 'mysql')}))
         raise SystemExit(0 if report['passed'] == report['total'] else 1)

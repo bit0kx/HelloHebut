@@ -29,7 +29,7 @@ def main():
     with report.with_suffix('.log').open('w', encoding='utf-8') as stream:
         logging.basicConfig(level=logging.WARNING, handlers=[logging.StreamHandler(stream)], force=True)
         result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
-    sources = sorted(p for folder in ('api', 'core', 'mcp', 'memory', 'rag', 'agents')
+    sources = sorted(p for folder in ('api', 'core', 'tooling', 'memory', 'rag', 'agents', 'workflows', 'monitor', 'evaluation')
                      for p in (ROOT / folder).glob('*.py'))
     sources += sorted((ROOT / 'memory/migrations').glob('*.sql'))
     hashes = {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()

@@ -26,7 +26,7 @@ print(json.dumps({'onnxruntime': m.version('onnxruntime'), 'chroma': m.version('
                   'retrieval_config': {'lexical': os.getenv('RAG_LEXICAL_MODE', 'filtered_legacy'),
                                        'fusion': os.getenv('RAG_FUSION_MODE', 'balanced')},
                   'runtime_source_sha256': {name: hashlib.sha256(Path(name).read_bytes()).hexdigest()
-                      for name in ('api/main.py', 'mcp/knowledge_base.py', 'mcp/lexical_retrieval.py')}}))
+                      for name in ('api/main.py', 'tooling/knowledge_base.py', 'tooling/lexical_retrieval.py')}}))
 '''
 
 
@@ -135,7 +135,7 @@ def main():
     report = {'mode': 'live_container_http_smoke', 'build_mode': args.build_mode,
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
               'source_hashes': {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
-                                for folder in ('core', 'mcp', 'memory', 'rag', 'api')
+                                for folder in ('core', 'tooling', 'memory', 'rag', 'api')
                                 for p in sorted((ROOT / folder).glob('*.py'))},
               'checks': rows, 'passed': sum(row['passed'] for row in rows), 'total': len(rows),
               'limitations': 'Small functional smoke; no statistical answer-quality claim. '

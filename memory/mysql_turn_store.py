@@ -41,10 +41,13 @@ class MySQLTurnStore(TurnStore):
         self.db = database or MySQLDatabase()
         self.conversations = self.db.table('chat_conversations')
         self.requests = self.db.table('chat_requests')
+        self.maintenance_outbox = None
 
     async def initialize(self):
         await self.db.initialize_tables(Path(__file__).parent/'migrations/002_turns.sql',
                                         ('chat_conversations', 'chat_requests'))
+        await self.db.initialize_tables(Path(__file__).parent/'migrations/003_graph.sql',
+                                        ('graph_runs', 'graph_checkpoints', 'graph_writes'))
 
     @staticmethod
     def identity(user, conv):
@@ -201,6 +204,8 @@ class MySQLTurnStore(TurnStore):
                             for role, content in [('user', message), ('assistant', result['response'])])
             await conn.execute(f'UPDATE {self.conversations} SET messages_json=%s,state_json=%s,revision=revision+1 '
                 'WHERE conversation_key=%s', (dump(messages), state.model_dump_json(), key))
+            if self.maintenance_outbox is not None:
+                await self.maintenance_outbox.enqueue_turn(conn, user_id, conv_id, request_id, message)
             await self._mark_committed(conn, key, self.request_hash(request_id))
         return True
 
@@ -233,7 +238,11 @@ class MySQLTurnStore(TurnStore):
         async with self.guard(user_id, conv_id) as token:
             async with self.db.connection() as conn:
                 await self._row(conn, key, token)
+                if self.maintenance_outbox is not None:
+                    await self.maintenance_outbox.clear_conversation(conn, user_id, conv_id)
                 await conn.execute(f'DELETE FROM {self.requests} WHERE conversation_key=%s', (key,))
+                for name in ('graph_writes', 'graph_checkpoints', 'graph_runs'):
+                    await conn.execute(f'DELETE FROM {self.db.table(name)} WHERE conversation_key=%s', (key,))
                 await conn.execute(f'UPDATE {self.conversations} SET messages_json=%s,state_json=%s,summary=%s,'
                     'revision=revision+1,summary_epoch=summary_epoch+1 WHERE conversation_key=%s',
                     ('[]', TaskState().model_dump_json(), '', key))
@@ -244,5 +253,7 @@ class MySQLTurnStore(TurnStore):
         if not re.fullmatch(r'test_[a-z_]+_[0-9a-f]{32}', self.db.schema):
             raise ValueError('test_namespace_required')
         async with self.db.connection() as conn:
+            for name in ('graph_writes', 'graph_checkpoints', 'graph_runs'):
+                await conn.execute(f'DROP TABLE IF EXISTS {self.db.table(name)}')
             await conn.execute(f'DROP TABLE IF EXISTS {self.requests}')
             await conn.execute(f'DROP TABLE IF EXISTS {self.conversations}')
