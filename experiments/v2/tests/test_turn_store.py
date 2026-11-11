@@ -46,6 +46,15 @@ class TurnStoreTests(unittest.IsolatedAsyncioTestCase):
                 await self.store.commit('u', 'c', 'r1', '问题', {'response': '回答'}, TaskState(), lease)
         self.assertEqual(await self.store.client.llen(self.store.key('wm', 'u', 'c')), 0)
 
+    async def test_legacy_task_requires_explicit_scope_before_preferences(self):
+        await self.store.client.set(self.store.key('state', 'u', 'old'), json.dumps(
+            {'schema_version': 1, 'revision': 2, 'entities': {'rank': ['12000']}}))
+        state = await self.store.state('u', 'old')
+        self.assertEqual(state.schema_version, 2)
+        self.assertFalse(state.subject_is_self)
+        self.assertEqual(state.entities['rank'], ['12000'])
+        self.assertTrue((await self.store.state('u', 'new')).subject_is_self)
+
     async def test_concurrent_duplicate_commits_only_once(self):
         async def submit():
             async with self.store.guard('u', 'c') as lease:

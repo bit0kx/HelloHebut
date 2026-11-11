@@ -5,6 +5,27 @@ name: hellohebut-v2
 
 services:
 
+  # PostgreSQL only stores verified preferences in this stage; independent v2 volume.
+  postgres:
+    image: ${V2_POSTGRES_IMAGE:-postgres:16-alpine}
+    container_name: hellohebut-v2-postgres
+    environment:
+      - POSTGRES_DB=hellohebut
+      - POSTGRES_USER=hellohebut
+      - POSTGRES_PASSWORD=${V2_POSTGRES_PASSWORD:-hellohebut123}
+    ports:
+      - "127.0.0.1:${V2_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - hellohebut-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hellohebut -d hellohebut"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ── Redis 缓存（工作记忆）────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
@@ -92,6 +113,12 @@ services:
       - V2_KNOWLEDGE_COLLECTION=${V2_KNOWLEDGE_COLLECTION:-hello_hebut_v2}
       - KNOWLEDGE_SEED_DIR=/app/data/demo_docs
       - ADMISSION_DATA_PATH=/app/data/hebut_admission.csv
+      - HELLOHEBUT_VERIFIED_MEMORY=${HELLOHEBUT_VERIFIED_MEMORY:-true}
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGDATABASE=hellohebut
+      - PGUSER=hellohebut
+      - PGPASSWORD=${V2_POSTGRES_PASSWORD:-hellohebut123}
     volumes:
       - ./experiments/v2/tmp/chroma:/app/data/chroma
       - ./data/demo_docs:/app/data/demo_docs:ro
@@ -104,6 +131,8 @@ services:
       redis:
         condition: service_healthy
       chromadb:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -147,6 +176,7 @@ networks:
 
 # ── 数据卷 ──────────────────────────────────────────────────────────────────
 volumes:
+  postgres-data:
   redis-data:
   chromadb-data:
   prometheus-data:

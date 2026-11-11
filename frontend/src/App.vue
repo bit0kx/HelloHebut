@@ -38,6 +38,8 @@
         </div>
       </section>
 
+      <PreferencePanel ref="preferencePanel" :settings="settings" />
+
       <section class="panel status-panel">
         <div class="panel-heading">
           <h2>状态</h2>
@@ -69,6 +71,7 @@
           <p>{{ api.baseUrl }}</p>
         </div>
         <div class="header-actions">
+          <button :disabled="busy" @click="newConversation">新对话</button>
           <a href="https://zs.hebut.edu.cn/" target="_blank" rel="noreferrer">本科招生网</a>
           <a :href="docsUrl" target="_blank" rel="noreferrer">API 文档</a>
         </div>
@@ -159,6 +162,7 @@
 
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import PreferencePanel from './components/PreferencePanel.vue'
 import {
   addKnowledge,
   apiMeta,
@@ -187,6 +191,7 @@ const docTitle = ref('2026年招生政策补充')
 const docContent = ref('请粘贴河北工业大学官方发布内容，并在管理端同时记录来源链接和发布日期。')
 const docSourceUrl = ref('https://zs.hebut.edu.cn/')
 const messageList = ref(null)
+const preferencePanel = ref(null)
 
 const api = computed(() => apiMeta(settings))
 const docsUrl = computed(() => `${api.value.baseUrl}/docs`)
@@ -210,6 +215,13 @@ function createId() {
 
 function persist() {
   saveSettings(settings)
+}
+
+function newConversation() {
+  settings.conversationId = ''
+  delete settings.pendingRequest
+  messages.value = []
+  persist()
 }
 
 async function sendMessage() {
@@ -247,6 +259,7 @@ async function sendMessage() {
     })
   } finally {
     busy.value = false
+    preferencePanel.value?.reload()
     await nextTick()
     messageList.value?.scrollTo({ top: messageList.value.scrollHeight, behavior: 'smooth' })
   }

@@ -57,7 +57,14 @@ class TurnStore:
 
     async def state(self, user_id, conv_id):
         value = await self.client.get(self.key('state', user_id, conv_id))
-        return TaskState.model_validate_json(value) if value else TaskState()
+        if not value:
+            return TaskState()
+        payload = json.loads(value)
+        if payload.get('schema_version', 1) < 2:
+            # Old tasks did not record whose preferences may apply. Do not guess on upgrade.
+            payload['subject_is_self'] = False
+            payload['schema_version'] = 2
+        return TaskState.model_validate(payload)
 
     @asynccontextmanager
     async def guard(self, user_id, conv_id, lease_s=60, wait_s=3):
@@ -76,12 +83,13 @@ class TurnStore:
             except Exception:
                 pass  # Expiry releases an orphaned lease; commit always checks ownership.
 
-    async def commit(self, user_id, conv_id, request_id, message, result, state, token):
+    async def commit(self, user_id, conv_id, request_id, message, result, state, token, memory_revision=None):
         now = datetime.now().isoformat()
         def raw(role, content):
             return json.dumps({'role': role, 'content': content, 'ts': now,
                                'metadata': {'request_id': request_id}}, ensure_ascii=False)
-        receipt = json.dumps({'message_hash': self.message_hash(message), 'result': result}, ensure_ascii=False)
+        receipt = json.dumps({'message_hash': self.message_hash(message), 'result': result,
+                              'memory_revision': memory_revision}, ensure_ascii=False)
         keys = [self.key(k, user_id, conv_id) for k in ('lease', 'wm', 'state')]
         keys += [self.receipt_key(user_id, conv_id, request_id), self.key('receipts', user_id, conv_id)]
         outcome = await self.client.eval(COMMIT, len(keys), *keys, token, raw('user', message),

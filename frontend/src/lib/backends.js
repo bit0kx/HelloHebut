@@ -42,13 +42,7 @@ export async function requestSearch(settings, query, topK = 5) {
 }
 
 export async function requestChat(settings, message) {
-  if (!settings.sessionToken) {
-    const session = await requestJson(apiMeta(settings).baseUrl, '/session', { method: 'POST' })
-    settings.sessionToken = session.session_token
-    settings.userId = session.user_id
-    settings.conversationId = ''
-    saveSettings(settings)
-  }
+  await ensureSession(settings)
   // Keep the ID for an explicit retry of the same message after a network error.
   const pending = settings.pendingRequest
   const requestId = pending?.message === message && pending?.convId === settings.conversationId
@@ -69,6 +63,7 @@ export async function requestChat(settings, message) {
   } catch (error) {
     if (error.status === 401) {
       settings.sessionToken = ''
+      settings.userId = ''
       settings.conversationId = ''
       delete settings.pendingRequest
       saveSettings(settings)
@@ -77,6 +72,42 @@ export async function requestChat(settings, message) {
   }
   delete settings.pendingRequest
   return normalizeChatResponse(raw)
+}
+
+const sessionRequests = new WeakMap()
+
+export async function ensureSession(settings) {
+  if (settings.sessionToken) return
+  if (!sessionRequests.has(settings)) {
+    const pending = requestJson(apiMeta(settings).baseUrl, '/session', { method: 'POST' }).then(session => {
+      settings.sessionToken = session.session_token
+      settings.userId = session.user_id
+      settings.conversationId = ''
+      saveSettings(settings)
+    }).finally(() => sessionRequests.delete(settings))
+    sessionRequests.set(settings, pending)
+  }
+  await sessionRequests.get(settings)
+}
+
+export async function requestMemories(settings, { method = 'GET', path = '', body, history = false } = {}) {
+  await ensureSession(settings)
+  try {
+    return await requestJson(apiMeta(settings).baseUrl, `/memories${path}${method === 'GET' && history ? '?history=true' : ''}`, {
+      method,
+      headers: { Authorization: `Bearer ${settings.sessionToken}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {})
+    })
+  } catch (error) {
+    if (error.status === 401) {
+      settings.sessionToken = ''
+      settings.userId = ''
+      settings.conversationId = ''
+      delete settings.pendingRequest
+      saveSettings(settings)
+    }
+    throw error
+  }
 }
 
 export async function addKnowledge(settings, documents, adminToken = '') {

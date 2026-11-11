@@ -116,8 +116,16 @@ async def lifespan(app: FastAPI):
         skill_manager=_skill_manager,
     )
 
-    # 记忆管理器（Redis 工作记忆 + ChromaDB 情景记忆/用户画像）
+    # PG only owns verified preferences in stage 3; Redis remains the chat-turn authority.
+    from memory.fact_store import FactStore
+    verified_memory = os.getenv('HELLOHEBUT_VERIFIED_MEMORY', 'false').lower() == 'true'
+    facts = FactStore(os.getenv('V2_FACT_DATABASE_URL', '')) if verified_memory else None
+    if facts:
+        await facts.initialize()
+    # 记忆管理器（Redis 工作记忆 + 可切换的跨会话记忆适配器）
     _memory = MemoryManager(
+        # Disabling PG disables cross-session preferences; never silently resurrect legacy profiles.
+        fact_store=facts, verified_memory_mode=True,
         redis_url=os.getenv("REDIS_URL", "redis://redis:6379/0"),
         chroma_host=os.getenv("CHROMA_HOST", "chromadb"),
         chroma_port=int(os.getenv("CHROMA_PORT", "8000")),
@@ -270,6 +278,9 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs",
 )
+
+from api.memory_routes import build_memory_router
+app.include_router(build_memory_router(lambda: _memory))
 
 _cors_origins = [
     item.strip()

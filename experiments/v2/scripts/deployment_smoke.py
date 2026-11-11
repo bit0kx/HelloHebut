@@ -38,14 +38,19 @@ def main():
     parser.add_argument('--report', default='experiments/v2/reports/stage3_deployment.json')
     args = parser.parse_args()
     rows = []
+    last_chat = {}
 
     def check(name, operation):
         started = time.monotonic()
+        last_chat.clear()
         try:
             details = operation() or {}
             rows.append({'check': name, 'passed': True, **details})
         except Exception as exc:
             rows.append({'check': name, 'passed': False, 'error_type': type(exc).__name__})
+            if last_chat:
+                rows[-1]['chat_diagnostic'] = {key: last_chat.get(key) for key in
+                    ('trace_id', 'status', 'verified', 'stop_reason', 'verification_method')}
         rows[-1]['duration_s'] = round(time.monotonic() - started, 3)
         print(json.dumps(rows[-1], ensure_ascii=False), flush=True)
 
@@ -77,6 +82,7 @@ def main():
             result = client.post(args.api + '/chat', headers=headers, json=payload)
             result.raise_for_status()
             data = result.json()
+            last_chat.update(data)
             assert data['response'] and data['trace_id']
             return payload, data
 

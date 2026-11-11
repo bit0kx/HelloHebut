@@ -148,6 +148,29 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RequestConflict):
             await self.service.handle('电气学什么', 'u', 'c', client_request_id='same')
 
+    async def test_repair_receives_citation_failure_reason_and_is_verified(self):
+        from core.contracts import AnswerVerdict, Evidence, SupportedClaim
+        from rag.agentic import RetrievalOutcome
+        evidence = Evidence(evidence_id='ev_test', content='学校设北辰校区。', content_hash='test', title='校区资料')
+        outcome = RetrievalOutcome(evidence=[evidence], verdict=EvidenceVerdict(
+            sufficient=True, decision='answer', supported_claims=[SupportedClaim(claim='校区', evidence_ids=['ev_test'])]))
+        judge = AsyncMock(return_value=AnswerVerdict(passed=True))
+        rag = AgenticRAG(None, model_json=judge)
+        rag.retrieve = AsyncMock(return_value=outcome)
+        self.service._rag = rag
+        prompts = []
+        async def answer(request):
+            prompts.append(request.context)
+            return SimpleNamespace(response='学校设北辰校区。' + ('[来源1]' if len(prompts) > 1 else ''),
+                                   intent=request.intent, agent_type=AgentType.GENERAL, escalated=False)
+        self.orchestrator.run.side_effect = answer
+        result = await self.service.handle('学校有哪些校区？', 'u', 'repair')
+        self.assertTrue(result.verified)
+        self.assertEqual(len(prompts), 2)
+        self.assertIn('缺失引用或引用编号无效', prompts[1])
+        self.assertIn('完整保留或补全有效的[来源N]', prompts[1])
+        judge.assert_awaited_once()  # First answer failed the deterministic guard, before the judge.
+
     async def test_new_conversation_retry_has_stable_id(self):
         first = await self.service.handle('你好', 'u', client_request_id='start')
         second = await self.service.handle('你好', 'u', client_request_id='start')

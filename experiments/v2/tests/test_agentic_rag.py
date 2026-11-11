@@ -95,6 +95,19 @@ class RagTests(unittest.IsolatedAsyncioTestCase):
         verdict = await rag.verify_answer('最低位次', '最低位次999999[来源1]', [evidence])
         self.assertFalse(verdict.passed)
         self.assertIn('数字', verdict.unsupported_claims[0])
+        self.assertIn('999999', verdict.unsupported_claims[0])
+        judge.assert_not_awaited()
+
+    async def test_markdown_ordinals_are_formatting_but_unknown_amounts_stay_blocked(self):
+        judge = AsyncMock(return_value=AnswerVerdict(passed=True))
+        rag = AgenticRAG(None, model_json=judge)
+        evidence = AgenticRAG.register(item(text='学校设北辰校区、红桥校区和廊坊校区。'))
+        verdict = await rag.verify_answer('有哪些校区', '**1. 北辰校区**[来源1]\n### 2. 红桥校区[来源1]\n- 3. 廊坊校区[来源1]', [evidence])
+        self.assertTrue(verdict.passed)
+        judge.assert_awaited_once()
+        judge.reset_mock()
+        verdict = await rag.verify_answer('有哪些校区', '**1. 北辰校区收费999999元**[来源1]', [evidence])
+        self.assertFalse(verdict.passed)
         judge.assert_not_awaited()
 
     async def test_tool_output_injection_is_passed_as_data_to_verifier(self):

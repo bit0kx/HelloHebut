@@ -1,0 +1,12 @@
+{
+  "mode": "postgres_and_app_restart",
+  "passed": true,
+  "cleaned": true,
+  "error_type": "",
+  "duration_s": 6.11,
+  "source_sha256": {
+    "memory/fact_store.py": "75894058afbae99c470dc80ae1cd969d3efad848a26315c5d14956be6c09092f",
+    "memory/migrations/001_facts.sql": "1465720a38a6c65ce13855dfc7e1deba63829ee87629108a31580369921e13db"
+  },
+  "limitations": "One confirmed preference in an isolated schema survives a real database/application restart. Does not claim workflow checkpoint recovery or atomic PostgreSQL chat commits."
+}

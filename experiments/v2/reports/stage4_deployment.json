@@ -1,0 +1,98 @@
+{
+  "mode": "live_container_http_smoke",
+  "build_mode": "reused_local_base",
+  "commit": "77e5690c8114ac315fb50d22acdd94a29db6b5fd",
+  "source_hashes": {
+    "core/admission_answer.py": "e6c4bad50c040dba7646f3fc50a63d71a8ed6212f67a4a52841f5a08753774b4",
+    "core/chat_service.py": "8576056e7af5425a3d458631a4b0a1a02087a2d4c00a2c541a65987c739fc156",
+    "core/contracts.py": "bb64261a2b8ac2dd1d6949b6976959677e764d5f554f9a6d13d265bc034978a8",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "6729a8cdfd8b38ba7364fc983f734a737a658630e8c2f197ef460f4f4082a62a",
+    "core/runtime.py": "ea6a4e9714d9361228d891c604f6a837f26b06271ce9c3c6e4328eb689cc10d8",
+    "core/skill_loader.py": "fc909656432994fe80d8798b4a204827210bc9271c6ace0044efd56028cc86f0",
+    "core/task_state.py": "7301b80e6b323c2167b18de171bea4833118a414f9f3a7142b0e1cec18ec44b8",
+    "mcp/admission_data.py": "2c87730895b553d3c47403be3f3e9a364c044afc1225f524a25650a69f722f59",
+    "mcp/knowledge_base.py": "938445496f4f010c8ba2903c536189056af1b28787439502b765439a9295d28f",
+    "mcp/knowledge_catalog.py": "743a2e232fc0903c4156b4bc7f5520e5fc7cd234849731073bddd09b201704d7",
+    "mcp/knowledge_indexing.py": "cdb3aafbc820706ba2b184ff45cd1371793301f3d4148ae25edd6e519182996e",
+    "mcp/lexical_retrieval.py": "9f601c37849dc0f22c211103a18ac3e78f1e1c3993a8b04c7b1e81c0caab2cbc",
+    "mcp/tool_manager.py": "8dbe1a2cf2759a4d767d85f4c1efbfd12ba9342cef34aa863fb428890df444c1",
+    "memory/conversation_memory.py": "0ff63980ac0194de458c8f69368e9add95e00e3a6c7a292f4c8c7b19f277a037",
+    "memory/fact_store.py": "75894058afbae99c470dc80ae1cd969d3efad848a26315c5d14956be6c09092f",
+    "memory/preferences.py": "a801d4dccc062ea0c60ea40b5eead5dc4bdf6adbd233fb002534df1c2f7887a7",
+    "memory/turn_store.py": "65ffe4904792a67cd9feb5ffdf3380ea1189578e6a2dd8913d7988e836cbe6fd",
+    "rag/agentic.py": "d9282de8cb9c0fd2df51be73912f533f35186408bd6efc8e147337946d2ac6a4",
+    "api/main.py": "b720d66a67e80d5e1b093b62086f930bc9f5b85ac1f257f2b621dd04b42ba1d9",
+    "api/memory_routes.py": "7e335eaa2e233559a81bd001f0ef367883fb5780154f431d135ed1bd69767ba2"
+  },
+  "checks": [
+    {
+      "check": "health_frontend_proxy_and_auth",
+      "passed": true,
+      "duration_s": 0.063
+    },
+    {
+      "check": "actual_onnx_embedding_and_chroma_query",
+      "passed": true,
+      "onnxruntime": "1.27.0",
+      "chroma": "0.5.23",
+      "dimensions": 384,
+      "documents": 410,
+      "vector_results": 3,
+      "retrieval_config": {
+        "lexical": "filtered_legacy",
+        "fusion": "balanced"
+      },
+      "runtime_source_sha256": {
+        "api/main.py": "b720d66a67e80d5e1b093b62086f930bc9f5b85ac1f257f2b621dd04b42ba1d9",
+        "mcp/knowledge_base.py": "938445496f4f010c8ba2903c536189056af1b28787439502b765439a9295d28f",
+        "mcp/lexical_retrieval.py": "9f601c37849dc0f22c211103a18ac3e78f1e1c3993a8b04c7b1e81c0caab2cbc"
+      },
+      "duration_s": 1.844
+    },
+    {
+      "check": "live_csv_chat_replay_and_conflict",
+      "passed": true,
+      "status": "completed",
+      "verified": true,
+      "citation_count": 1,
+      "idempotent_replay": true,
+      "duration_s": 3.234
+    },
+    {
+      "check": "live_candidate_scope_change",
+      "passed": true,
+      "status": "clarification",
+      "old_rank_invalidated": true,
+      "duration_s": 3.688
+    },
+    {
+      "check": "live_rag_verified_accommodation_answer",
+      "passed": true,
+      "status": "completed",
+      "verified": true,
+      "citation_count": 1,
+      "duration_s": 11.14
+    },
+    {
+      "check": "live_rag_verified_campus_answer",
+      "passed": true,
+      "status": "completed",
+      "verified": true,
+      "citation_count": 1,
+      "all_three_campuses": true,
+      "duration_s": 11.844
+    },
+    {
+      "check": "live_rag_missing_tuition_rates_abstain",
+      "passed": true,
+      "status": "insufficient_evidence",
+      "verified": false,
+      "stop_reason": "no_new_evidence",
+      "duration_s": 21.953
+    }
+  ],
+  "passed": 7,
+  "total": 7,
+  "limitations": "Small functional smoke; no statistical answer-quality claim. Local-base reuse does not validate a clean standard Dockerfile build."
+}

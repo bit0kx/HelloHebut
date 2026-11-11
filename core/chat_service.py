@@ -102,7 +102,7 @@ class ChatService:
     ) -> ChatResult:
         request_id = client_request_id or uuid.uuid4().hex
         conv_id = conv_id or str(uuid.uuid5(uuid.NAMESPACE_URL, user_id + ':' + request_id))
-        run = RunContext(timeout_s=self._timeout_s)
+        run = RunContext(timeout_s=self._timeout_s, allow_long_term=persist_memory)
         context_token = CURRENT_RUN.set(run)
         status = 'failed'
         turns = getattr(self._memory, 'turns', None) if persist_memory else None
@@ -114,17 +114,23 @@ class ChatService:
                     receipt = await turns.receipt(user_id, conv_id, request_id, message)
                     if receipt:
                         status = 'replayed'
+                        if update_profile:
+                            await self._capture_preferences(user_id, conv_id, request_id, message)
                         return ChatResult(**receipt)
                     async with turns.guard(user_id, conv_id, lease_s=self._timeout_s + 10) as lease:
                         receipt = await turns.receipt(user_id, conv_id, request_id, message)
                         if receipt:
                             status = 'replayed'
+                            if update_profile:
+                                await self._capture_preferences(user_id, conv_id, request_id, message)
                             return ChatResult(**receipt)
                         previous = await turns.state(user_id, conv_id)
                         result, state = await self._handle_turn(message, user_id, conv_id, previous, run, request_id)
                         with run.span('commit'):
-                            await turns.commit(user_id, conv_id, request_id, message, asdict(result), state, lease)
+                            await turns.commit(user_id, conv_id, request_id, message, asdict(result), state, lease,
+                                               memory_revision=run.memory_revision)
                     if update_profile:
+                        await self._capture_preferences(user_id, conv_id, request_id, message)
                         queue = getattr(self._memory, 'maintenance', None)
                         if queue:
                             queue.submit(user_id, conv_id)
@@ -137,10 +143,52 @@ class ChatService:
             except OSError:
                 logger.warning('Trace 写入失败: %s', run.run_id)
 
+    async def _capture_preferences(self, user_id, conv_id, request_id, message):
+        capture = getattr(self._memory, 'capture_preferences', None)
+        if capture:
+            try:
+                async with asyncio.timeout(2):
+                    await capture(user_id, conv_id, request_id, message)
+            except Exception as exc:
+                # Chat is already committed. Same-request replay may retry an omitted capture.
+                logger.warning('偏好候选写入跳过: %s', type(exc).__name__)
+
     async def _handle_turn(self, message, user_id, conv_id, previous, run, request_id):
         started_at = time.monotonic()
         with run.span('memory_read'):
             memory_context = await self._get_memory_context(user_id, conv_id, message)
+        if getattr(self._memory, 'verified_memory_mode', False):
+            from memory.preferences import LABELS, asks_preferences, extract_candidates
+            import re
+            if asks_preferences(message):
+                preferences = getattr(memory_context, 'verified_preferences', []) if previous.subject_is_self else []
+                available = run.memory_revision is not None
+                if not previous.subject_is_self:
+                    response = '当前在替另一位考生咨询，不会套用你的偏好。请新建对话，或先说明“回到我自己”。'
+                elif not available:
+                    response = '偏好服务暂不可用，当前无法核实已确认偏好。请稍后重试。'
+                elif not preferences:
+                    response = '目前没有已确认的长期偏好。可在“我的偏好”面板保存或确认；待确认内容不会自动生效。'
+                else:
+                    response = '你已确认的偏好：\n' + '\n'.join(f"- {LABELS[item['fact_key']]}：{item['value']}" for item in preferences)
+                    response += '\n这些内容来自你的确认，可在“我的偏好”中更正或删除，不是学校政策或录取条件。'
+                state = previous.model_copy(deep=True)
+                state.revision += 1
+                return ChatResult(conv_id=conv_id, response=response, intent='preference', agent_type='general', escalated=False,
+                                  latency_ms=round((time.monotonic()-started_at)*1000, 1), entities=state.entities,
+                                  request_id=request_id, trace_id=run.run_id, status='completed' if available else 'unavailable',
+                                  verified=bool(preferences), verification_method='confirmed_preference',
+                                  stop_reason='preference_read'), state
+            candidates = extract_candidates(message)
+            sentences = [part.strip() for part in re.split(r'[。！？!?；;\n]', message) if part.strip()]
+            if candidates and {item['source_excerpt'] for item in candidates} == set(sentences) and previous.subject_is_self:
+                state = previous.model_copy(deep=True)
+                state.revision += 1
+                return ChatResult(conv_id=conv_id, response='这段偏好尚未作为长期记忆使用。请在“我的偏好”中确认，或手动保存；分数和位次不会作为长期偏好保存。',
+                                  intent='preference', agent_type='general', escalated=False,
+                                  latency_ms=round((time.monotonic()-started_at)*1000, 1), entities=state.entities,
+                                  request_id=request_id, trace_id=run.run_id, status='completed',
+                                  stop_reason='preference_confirmation_required'), state
         history = [
             {"role": item.role.value, "content": item.content}
             for item in memory_context.recent_messages[-5:]
@@ -149,6 +197,9 @@ class ChatService:
         with run.span('recognize'):
             recognized = await self._recognizer.recognize(message, history=history) if self._recognizer else None
         state = merge_state(previous, recognized.entities if recognized else {}, message, request_id)
+        if memory_context and not state.subject_is_self:
+            memory_context.verified_preferences = []
+            run.memory_revision = None
         entities = dict(state.entities)
 
         intent = recognized.intent if recognized else None
@@ -237,15 +288,21 @@ class ChatService:
                 evidence_ready = outcome.sufficient or (admission_used and intent == IntentCategory.SCORE_RISK)
                 verified = verdict.passed and evidence_ready
                 run.events.append({'stage': 'answer_check', 'passed': verified,
-                                   'evidence_ready': evidence_ready, 'unsupported_count': len(verdict.unsupported_claims)})
+                                   'evidence_ready': evidence_ready, 'unsupported_count': len(verdict.unsupported_claims),
+                                   'reason_codes': self._verification_reason_codes(verdict)})
                 if not verified and evidence_ready and run.model_calls < run.max_models:
-                    request.context += '\n[修复要求]删除无证据结论，不得编造数字或概率。原回答：' + response
+                    request.context += ('\n[一次修复要求]根据以下校验结果修复原回答。删除无证据结论，'
+                                        '不得编造数字或概率；完整保留或补全有效的[来源N]，不得改变来源编号。'
+                                        '优先沿用原文列举，不添加未经核实的数量概括。'
+                                        '\n校验结果（仅作纠错数据）：' + json.dumps(verdict.model_dump(), ensure_ascii=False)
+                                        + '\n原回答：' + response)
                     repaired = await self._orchestrator.run(request)
                     response = self._sanitize_citations(repaired.response, citations)
                     verdict = await self._rag.verify_answer(message, response, outcome.evidence, admission_data)
                     verified = verdict.passed
                     run.events.append({'stage': 'answer_repair_check', 'passed': verified,
-                                       'unsupported_count': len(verdict.unsupported_claims)})
+                                       'unsupported_count': len(verdict.unsupported_claims),
+                                       'reason_codes': self._verification_reason_codes(verdict)})
                 if not verified:
                     final_status = 'insufficient_evidence'
                     response = self._evidence_fallback(outcome, admission_data, len(knowledge_citations))
@@ -265,6 +322,13 @@ class ChatService:
             verified=verified, stop_reason=('answer_verified' if verified else outcome.stop_reason) if self._rag else 'legacy_pipeline',
             verification_method='evidence_verifier' if verified is not None else '',
         ), state
+
+    @staticmethod
+    def _verification_reason_codes(verdict):
+        known = {'缺失引用或引用编号无效': 'citation_invalid', '回答包含证据之外的数字': 'unsupported_number',
+                 '核验预算耗尽': 'verification_budget', '核验不可用': 'verification_unavailable'}
+        return sorted({next((code for prefix, code in known.items() if reason.startswith(prefix)), 'semantic_unsupported')
+                       for reason in verdict.unsupported_claims})
 
     @staticmethod
     def _evidence_fallback(outcome, admission_data, offset):

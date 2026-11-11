@@ -178,12 +178,16 @@ class AgenticRAG:
             return AnswerVerdict(passed=False, unsupported_claims=['缺失引用或引用编号无效'])
         # Exclude citation ordinals when testing unsupported numerical values.
         body = re.sub(r'\[来源\d+\]', '', answer)
-        body = re.sub(r'^\s*\d+[.)、]\s+', '', body, flags=re.MULTILINE)
+        # Markdown headings/bold may wrap list ordinals. Strip only the ordinal prefix;
+        # quantities in the sentence still face the hard guard and the full answer judge.
+        body = re.sub(r'^\s*(?:[-*+]\s+|#{1,6}\s+)?(?:\*\*|__)?[1-9]\d?[.)、]\s+(?:\*\*|__)?',
+                      '', body, flags=re.MULTILINE)
         body = re.sub(r'(?<=\d),(?=\d{3}(?:\D|$))', '', body)
         reference = ' '.join(e.content for e in evidence) + json.dumps(admission_data or {}, ensure_ascii=False) + question
         allowed = set(re.findall(r'\d+(?:\.\d+)?', reference))
-        if set(re.findall(r'\d+(?:\.\d+)?', body)) - allowed:
-            return AnswerVerdict(passed=False, unsupported_claims=['回答包含证据之外的数字'])
+        unsupported = set(re.findall(r'\d+(?:\.\d+)?', body)) - allowed
+        if unsupported:
+            return AnswerVerdict(passed=False, unsupported_claims=['回答包含证据之外的数字：' + '、'.join(sorted(unsupported))])
         try:
             return await self.model_json(
                 '逐项核验答案是否由证据或CSV支持，特别检查年份、专业、分数、位次对应关系。'

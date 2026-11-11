@@ -8,11 +8,12 @@ class Contract(BaseModel):
 
 
 class TaskState(Contract):
-    schema_version: int = 1
+    schema_version: int = 2
     revision: int = 0
     entities: dict[str, list[str]] = Field(default_factory=dict)
     sources: dict[str, str] = Field(default_factory=dict)
     invalidated: list[str] = Field(default_factory=list)
+    subject_is_self: bool = True
 
 
 class RetrievalQuery(Contract):

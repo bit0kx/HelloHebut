@@ -1,6 +1,7 @@
 """Explicit admission conditions; historical scores must not cross candidate scopes."""
 import re
 from core.contracts import TaskState
+from memory.preferences import other_candidate
 
 FIELDS = {'province', 'exam_mode', 'subject_combination', 'batch', 'score', 'rank',
           'major', 'college', 'campus', 'candidate_type', 'admission_year'}
@@ -11,10 +12,18 @@ def merge_state(previous: TaskState, entities: dict, message: str, request_id: s
     current = {key: [str(v).strip() for v in values if str(v).strip()]
                for key, values in entities.items() if key in FIELDS and isinstance(values, list)}
     current = {key: values for key, values in current.items() if values}
-    reset = bool(re.search(r'另一个(?:人|考生)|帮(?:朋友|同学)|换个考生|重新开始|清空条件', message))
+    own = bool(re.search(r'回到我(?:自己)?|问我自己|我本人(?:的情况)?', message))
+    other = other_candidate(message)
+    reset = other or own or bool(re.search(r'重新开始|清空条件', message))
     state = TaskState(revision=previous.revision + 1) if reset else previous.model_copy(deep=True)
     state.revision = previous.revision + 1
     state.invalidated = list(previous.entities) if reset else []
+    if other:
+        state.subject_is_self = False
+    elif own:
+        state.subject_is_self = True
+    elif reset:
+        state.subject_is_self = previous.subject_is_self
     changed = any(key in current and previous.entities.get(key)
                   and current[key] != previous.entities[key] for key in SCOPE)
     if changed and not reset:
