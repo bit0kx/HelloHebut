@@ -121,6 +121,7 @@ class Tool:
     fallback:    Optional[Callable] = None    # sync/async (params, context, error) -> Any
     read_only: bool = True
     allowed_agents: tuple[str, ...] = ()
+    cache_scope: Optional[Callable] = None
 
     # 运行时状态（不参与构造）
     stats:   ToolStats    = field(default_factory=ToolStats, init=False)
@@ -197,8 +198,14 @@ class MCPToolManager:
                                'argument_keys': sorted(params), 'read_only': tool.read_only})
 
         # 缓存命中
+        cache_name = name
+        if tool.cache_scope:
+            try:
+                cache_name += ':' + str(await asyncio.to_thread(tool.cache_scope))
+            except Exception:
+                return ToolResult(False, None, name, error='knowledge_publication_unavailable')
         if use_cache and tool.cache_ttl > 0:
-            cached = self._get_cache(name, params)
+            cached = self._get_cache(cache_name, params)
             if cached is not None:
                 tool.stats.total += 1
                 tool.stats.success += 1
@@ -223,7 +230,7 @@ class MCPToolManager:
 
             # 写缓存
             if tool.cache_ttl > 0 and cache_generation == self._cache_generation:
-                self._set_cache(name, params, data, tool.cache_ttl)
+                self._set_cache(cache_name, params, data, tool.cache_ttl)
 
             # 重排（针对返回列表的检索工具）
             reranked = False

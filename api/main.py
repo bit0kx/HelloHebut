@@ -129,6 +129,7 @@ async def lifespan(app: FastAPI):
 
     # MCP 工具管理器 + RAG 知识库（基于 ChromaDB 的真实检索）
     kb = KnowledgeBase(
+        redis_url=os.getenv('REDIS_URL', 'redis://redis:6379/0'),
         chroma_host=os.getenv("CHROMA_HOST", "chromadb"),
         chroma_port=int(os.getenv("CHROMA_PORT", "8000")),
         chroma_path=os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chroma"),
@@ -190,6 +191,7 @@ async def lifespan(app: FastAPI):
                 "additionalProperties": False,
             },
             cache_ttl=300.0,
+            cache_scope=kb.cache_epoch,
             supports_rerank=True,
             fallback=knowledge_fallback,
         ))
@@ -254,6 +256,8 @@ async def lifespan(app: FastAPI):
 
     await _monitor.stop()
     await _memory.close()
+    if kb._catalog:
+        kb._catalog.close()
     logger.info("河北工业大学本科报考咨询服务已关闭")
 
 
@@ -305,12 +309,15 @@ class ChatResponse(BaseModel):
     status: str = 'completed'
     verified: Optional[bool] = None
     stop_reason: str = ''
+    verification_method: str = ''
 
 
 def require_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
     """配置 ADMIN_API_TOKEN 后保护知识写入、Skill 重载和评测入口。"""
     expected = os.getenv("ADMIN_API_TOKEN", "").strip()
-    if expected and x_admin_token != expected:
+    if not expected:
+        raise HTTPException(503, '管理接口未启用，请配置 ADMIN_API_TOKEN')
+    if x_admin_token != expected:
         raise HTTPException(401, "缺少或使用了无效的管理令牌")
 
 
@@ -433,6 +440,9 @@ class DocInput(BaseModel):
     fetched_at: Optional[str] = None
     effective_year: Optional[int] = None
     document_version: Optional[str] = None
+    document_id: Optional[str] = Field(default=None, min_length=1, max_length=256)
+    valid_from: Optional[str] = None
+    valid_until: Optional[str] = None
     college: Optional[str] = None
     major: Optional[str] = None
     section: Optional[str] = None
@@ -506,7 +516,7 @@ async def add_knowledge(body: BatchDocInput, _: None = Depends(require_admin)):
     kb = tool.handler.__self__
     for document in body.documents:
         validate_official_source(document.source_url)
-    count = await asyncio.to_thread(kb.add_documents, [d.model_dump(exclude_none=True) for d in body.documents])
+    count = await publish_knowledge(kb, [d.model_dump(exclude_none=True) for d in body.documents])
     for manager in _tool_managers:
         manager.invalidate_cache()
     return {"message": f"成功导入 {count} 个文档片段", "added_chunks": count, "total_chunks": kb.doc_count}
@@ -560,7 +570,7 @@ async def upload_knowledge(
         title = filename.rsplit(".", 1)[0] if "." in filename else filename
         docs = [{"title": title, "content": text, "source_url": source_url, "category": category}]
 
-    count = await asyncio.to_thread(kb.add_documents, docs)
+    count = await publish_knowledge(kb, docs)
     for manager in _tool_managers:
         manager.invalidate_cache()
     return {
@@ -580,7 +590,42 @@ async def knowledge_stats():
     return {
         "total_chunks": kb.doc_count,
         "seed_import": kb.last_seed_report,
+        "publication": await asyncio.to_thread(kb.publication_status),
     }
+
+
+async def publish_knowledge(kb, documents):
+    from mcp.knowledge_catalog import PublicationConflict
+    try:
+        normalized = [DocInput.model_validate(item).model_dump(exclude_none=True) for item in documents]
+        if not normalized:
+            raise ValueError('发布文档不能为空')
+        return await asyncio.to_thread(kb.add_documents, normalized)
+    except PublicationConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+class RollbackInput(BaseModel):
+    generation: int = Field(ge=0)
+
+
+@app.post('/knowledge/rollback', tags=['知识库'])
+async def rollback_knowledge(body: RollbackInput, _: None = Depends(require_admin)):
+    tool = _tool_manager._tools.get('knowledge_search') if _tool_manager else None
+    if tool is None:
+        raise HTTPException(503, '知识库未初始化')
+    from mcp.knowledge_catalog import PublicationConflict
+    try:
+        generation = await asyncio.to_thread(tool.handler.__self__.rollback, body.generation)
+    except PublicationConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    for manager in _tool_managers:
+        manager.invalidate_cache()
+    return {'generation': generation}
 
 
 @app.post("/eval/run")

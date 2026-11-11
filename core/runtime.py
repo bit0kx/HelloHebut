@@ -39,6 +39,7 @@ class RunContext:
     input_tokens: int = 0
     output_tokens: int = 0
     events: list = field(default_factory=list)
+    knowledge_snapshots: dict = field(default_factory=dict, repr=False)
 
     def check_deadline(self):
         if time.monotonic() - self.started >= self.timeout_s:

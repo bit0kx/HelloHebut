@@ -16,12 +16,18 @@ import asyncio
 import json
 import logging
 import re
+import uuid
+from contextvars import ContextVar
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from mcp.knowledge_indexing import INDEX_VERSION, contextual_chunks, lexical_score, split_text
+from mcp.knowledge_catalog import KnowledgeCatalog
+from core.runtime import CURRENT_RUN
 
 logger = logging.getLogger(__name__)
+_SEARCH_SNAPSHOT = ContextVar('knowledge_search_snapshot', default=None)
 
 
 class KnowledgeBase:
@@ -43,6 +49,7 @@ class KnowledgeBase:
         chroma_path: str = "./data/chroma",
         collection_name: Optional[str] = None,
         seed_dir: Optional[str] = None,
+        redis_url: Optional[str] = None,
     ):
         import chromadb
 
@@ -71,9 +78,10 @@ class KnowledgeBase:
             name=collection_name or self.COLLECTION_NAME,
             metadata={"description": "河北工业大学普通本科报考咨询官方知识库"},
         )
+        self._catalog = KnowledgeCatalog(redis_url, collection_name or self.COLLECTION_NAME) if redis_url else None
 
         # 首次启动或索引规则升级时重建内置知识；不重复向量化已是最新版的内容。
-        builtin = self._collection.get(
+        builtin = self._active_get(
             where={"source_type": "builtin"},
             include=["metadatas"],
         )
@@ -97,7 +105,7 @@ class KnowledgeBase:
 
     # ── 文档管理 ──────────────────────────────────────────────────────────────
 
-    def add_documents(self, documents: List[Dict[str, Any]]) -> int:
+    def add_documents(self, documents: List[Dict[str, Any]], *, replace_scope=None) -> int:
         """
         批量导入文档到知识库。
 
@@ -105,6 +113,14 @@ class KnowledgeBase:
         长文档会自动切片（每片 500 字）。
         """
         ids, docs, metas = [], [], []
+        catalog = getattr(self, '_catalog', None)
+        previous = catalog.read() if catalog else None
+        active = dict(previous['documents']) if previous else {}
+        if replace_scope:
+            active = {key: value for key, value in active.items()
+                      if not all(value.get(k) == v for k, v in replace_scope.items())}
+        total = 0
+        identities = set()
 
         for doc in documents:
             title   = str(doc.get("title", "")).strip()
@@ -127,6 +143,7 @@ class KnowledgeBase:
                 "college",
                 "major",
                 "section",
+                "document_id", "valid_from", "valid_until",
             ):
                 value = doc.get(key)
                 if isinstance(value, (str, int, float, bool)):
@@ -134,6 +151,35 @@ class KnowledgeBase:
             if isinstance(doc.get("keywords"), (list, tuple, set)):
                 base_meta["keywords"] = "、".join(map(str, doc["keywords"]))
             chunks = contextual_chunks({**doc, "metadata": base_meta}, chunk_size=500)
+            if not chunks:
+                raise ValueError('文档正文为空，不能发布')
+            total += len(chunks)
+            revision = None
+            if catalog:
+                if not (base_meta.get('source_url') or base_meta.get('source_file')):
+                    raise ValueError('发布资料必须具有来源 URL 或文件标识')
+                identity = base_meta.get('document_id') or json.dumps(
+                    [base_meta.get('source_file') or base_meta.get('source_url'), title,
+                     base_meta.get('effective_year')], ensure_ascii=False)
+                document_id = hashlib.sha256(identity.encode()).hexdigest()
+                if document_id in identities:
+                    raise ValueError('同一批次包含重复文档标识')
+                identities.add(document_id)
+                signature = hashlib.sha256(json.dumps([title, base_meta, chunks, INDEX_VERSION],
+                    sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+                existing = previous['documents'].get(document_id)
+                if existing and existing['signature'] == signature:
+                    active[document_id] = existing
+                    continue
+                revision = uuid.uuid4().hex
+                base_meta.update(document_id=document_id, revision_id=revision,
+                                 content_hash=hashlib.sha256(str(doc.get('content', '')).encode()).hexdigest(),
+                                 ingested_at=datetime.now(timezone.utc).isoformat())
+                base_meta.setdefault('document_version', signature)
+                active[document_id] = {'signature': signature, 'revision_id': revision,
+                                      'document_version': base_meta['document_version'],
+                                      'source_file': base_meta.get('source_file', ''),
+                                      'source_type': base_meta.get('source_type', ''), 'chunk_ids': []}
 
             for i, chunk in enumerate(chunks):
                 raw_content = chunk["content"]
@@ -141,7 +187,9 @@ class KnowledgeBase:
                     f"{base_meta.get('source_url', '')}|{base_meta.get('source_file', '')}|"
                     f"{base_meta.get('document_version', '')}|{title}|{i}|{raw_content[:80]}"
                 )
-                doc_id = hashlib.md5(identity.encode()).hexdigest()
+                doc_id = f'{revision}:{i}' if revision else hashlib.md5(identity.encode()).hexdigest()
+                if catalog:
+                    active[document_id]['chunk_ids'].append(doc_id)
                 ids.append(doc_id)
                 docs.append(chunk["index_text"])
                 metas.append({
@@ -159,9 +207,16 @@ class KnowledgeBase:
         if ids:
             # ChromaDB 会自动生成 Embedding
             self._collection.upsert(ids=ids, documents=docs, metadatas=metas)
+            if catalog:
+                staged = self._collection.get(ids=ids, include=['documents', 'metadatas'])
+                actual = {key: (text, meta) for key, text, meta in zip(
+                    staged.get('ids') or [], staged.get('documents') or [], staged.get('metadatas') or [])}
+                if actual != {key: (text, meta) for key, text, meta in zip(ids, docs, metas)}:
+                    raise RuntimeError('暂存片段校验失败，活动版本保持不变')
             logger.info(f"知识库导入 {len(ids)} 个文档片段")
-
-        return len(ids)
+        if catalog and active != previous['documents']:
+            catalog.commit(previous, active)
+        return total
 
     def import_seed_directory(self, directory: str) -> Dict[str, Any]:
         """扫描部署资料目录并增量导入；内容未变化的文件不会重复向量化。"""
@@ -198,7 +253,7 @@ class KnowledgeBase:
                 if expected_chunks == 0:
                     raise ValueError("文件没有可导入的文本内容")
 
-                existing = self._collection.get(
+                existing = self._active_get(
                     where={"source_file": source_file},
                     include=["metadatas"],
                 )
@@ -216,7 +271,7 @@ class KnowledgeBase:
                     report["skipped_files"] += 1
                     continue
 
-                added_chunks = self.add_documents(documents)
+                added_chunks = self.add_documents(documents, replace_scope={'source_file': source_file})
                 if added_chunks != expected_chunks:
                     raise RuntimeError(
                         f"预期导入 {expected_chunks} 个片段，实际导入 {added_chunks} 个"
@@ -236,7 +291,7 @@ class KnowledgeBase:
                     if meta.get("document_version") != version
                     or meta.get("index_version") != INDEX_VERSION
                 ]
-                if stale_ids:
+                if stale_ids and not self._catalog:
                     self._collection.delete(ids=stale_ids)
 
                 report["imported_files"] += 1
@@ -263,6 +318,15 @@ class KnowledgeBase:
         categories: Optional[List[str]] = None,
         year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
+        catalog = getattr(self, '_catalog', None)
+        token = _SEARCH_SNAPSHOT.set((self, self._snapshot())) if catalog else None
+        try:
+            return self._search(query, top_k, categories, year)
+        finally:
+            if token is not None:
+                _SEARCH_SNAPSHOT.reset(token)
+
+    def _search(self, query, top_k=5, categories=None, year=None):
         """类别优先混合召回，并为每条查询保留至少 20% 的全库候选。"""
         top_k = max(1, int(top_k))
         categories = [value for value in (categories or []) if value]
@@ -412,7 +476,7 @@ class KnowledgeBase:
         year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         kwargs: Dict[str, Any] = {"query_texts": [query], "n_results": top_k}
-        where = self._category_where(categories, year)
+        where = self._active_where(self._category_where(categories, year))
         if where:
             kwargs["where"] = where
         try:
@@ -445,7 +509,7 @@ class KnowledgeBase:
         year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         kwargs: Dict[str, Any] = {"include": ["documents", "metadatas"]}
-        where = self._category_where(categories, year)
+        where = self._active_where(self._category_where(categories, year))
         if where:
             kwargs["where"] = where
         try:
@@ -493,6 +557,7 @@ class KnowledgeBase:
                     "source_url", "category", "published_at", "effective_year",
                     "document_version", "source_file", "source_type", "college",
                     "major", "section", "keywords", "index_version",
+                    "document_id", "revision_id", "content_hash", "ingested_at", "valid_from", "valid_until",
                 )
             },
         }
@@ -502,7 +567,57 @@ class KnowledgeBase:
 
     @property
     def doc_count(self) -> int:
+        if getattr(self, '_catalog', None):
+            return sum(len(value['chunk_ids']) for value in self._catalog.read()['documents'].values())
         return self._collection.count()
+
+    def _active_where(self, where=None):
+        catalog = getattr(self, '_catalog', None)
+        if not catalog:
+            return where
+        snapshot = _SEARCH_SNAPSHOT.get()
+        manifest = snapshot[1] if snapshot and snapshot[0] is self else self._snapshot()
+        revisions = [item['revision_id'] for item in manifest['documents'].values()]
+        active = {'revision_id': {'$in': revisions}} if revisions else {'revision_id': '__unpublished__'}
+        return {'$and': [active, where]} if where else active
+
+    def _active_get(self, where=None, include=None):
+        scope = self._active_where(where)
+        kwargs = {'include': include or ['metadatas']}
+        if scope:
+            kwargs['where'] = scope
+        return self._collection.get(**kwargs)
+
+    def cache_epoch(self):
+        return str(self._snapshot()['generation']) if self._catalog else 'legacy'
+
+    def _snapshot(self):
+        run = CURRENT_RUN.get()
+        if run is None:
+            return self._catalog.read()
+        key = self._catalog.key
+        if key not in run.knowledge_snapshots:
+            snapshot = self._catalog.read()
+            run.knowledge_snapshots.setdefault(key, snapshot)
+            run.events.append({'stage': 'knowledge_snapshot',
+                               'generation': run.knowledge_snapshots[key]['generation']})
+        return run.knowledge_snapshots[key]
+
+    def publication_status(self):
+        if not self._catalog:
+            return {'enabled': False}
+        active = self._catalog.read()
+        return {'enabled': True, 'generation': active['generation'], 'documents': len(active['documents']),
+                'rollback_generations': [item['generation'] for item in self._catalog.history()]}
+
+    def rollback(self, generation):
+        if not self._catalog:
+            raise ValueError('当前知识库未启用版本发布')
+        def validate(snapshot):
+            ids = [key for item in snapshot['documents'].values() for key in item['chunk_ids']]
+            if ids and set(self._collection.get(ids=ids, include=['metadatas'])['ids']) != set(ids):
+                raise ValueError('目标版本片段不完整，无法回退')
+        return self._catalog.rollback(generation, validate)['generation']
 
     # ── MCP 工具 handler ─────────────────────────────────────────────────────
 
@@ -554,6 +669,8 @@ class KnowledgeBase:
             document.setdefault("title", path.stem if len(documents) == 1 else f"{path.stem}-{index}")
             document.setdefault("category", "major_info")
             document["document_version"] = version
+            document['source_file'] = source_file
+            document['source_type'] = 'deployment_seed'
             if year_match:
                 document.setdefault("effective_year", int(year_match.group(0)))
             metadata = dict(document.get("metadata") or {})
@@ -690,7 +807,7 @@ class KnowledgeBase:
         ]
         for document in default_docs:
             document["source_type"] = "builtin"
-        self.add_documents(default_docs)
+        self.add_documents(default_docs, replace_scope={'source_type': 'builtin'})
         titles = {document["title"] for document in default_docs}
         stored = self._collection.get(include=["metadatas"])
         stale_ids = [
@@ -698,6 +815,6 @@ class KnowledgeBase:
             for doc_id, meta in zip(stored.get("ids") or [], stored.get("metadatas") or [])
             if meta.get("title") in titles and meta.get("index_version") != INDEX_VERSION
         ]
-        if stale_ids:
+        if stale_ids and not self._catalog:
             self._collection.delete(ids=stale_ids)
         logger.info(f"已导入河北工业大学官方默认知识: {len(default_docs)} 篇文档")

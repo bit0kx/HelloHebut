@@ -33,6 +33,9 @@ class Evidence(Contract):
     year: int | None = None
     version: str = ''
     content_hash: str
+    document_id: str = ''
+    revision_id: str = ''
+    chunk_id: str = ''
 
 
 class SupportedClaim(Contract):

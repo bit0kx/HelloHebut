@@ -1,0 +1,12 @@
+{
+  "benchmark_id": "stage2-builtin-development-v1",
+  "annotation": "从项目已收录正文整理的开发集，待用户人工复核；不是独立人工测试集。",
+  "cases": [
+    {"id": "accommodation", "query": "2026年住宿费有哪几个标准", "year": 2026, "expected_titles": ["2026年收费、合作办学与学生资助"]},
+    {"id": "campuses", "query": "2026年学校有哪些校区", "year": 2026, "expected_titles": ["河北工业大学基本情况与校区"]},
+    {"id": "adjustment", "query": "2026年不服从专业调剂如何处理", "year": 2026, "expected_titles": ["2026年专业安排、调剂与高考改革规则"]},
+    {"id": "contact", "query": "2026年本科招生办联系电话", "year": 2026, "expected_titles": ["河北工业大学本科招生官方联系渠道"]},
+    {"id": "absent_2024", "query": "2024年住宿费标准", "year": 2024, "expected_titles": []},
+    {"id": "absent_2025", "query": "2025年专业调剂规则", "year": 2025, "expected_titles": []}
+  ]
+}

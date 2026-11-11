@@ -30,6 +30,7 @@ def main():
     parser.add_argument('--api', default='http://localhost:18000')
     parser.add_argument('--web', default='http://localhost:8088')
     parser.add_argument('--build-mode', choices=['standard', 'reused_local_base'], required=True)
+    parser.add_argument('--report', default='experiments/v2/reports/stage2_deployment.json')
     args = parser.parse_args()
     rows = []
 
@@ -75,9 +76,9 @@ def main():
         def admission_and_replay():
             payload, data = chat('河北物理类位次12000，计算机科学与技术录取风险如何？')
             assert data['admission_data_used'] and data['citations']
-            assert data['status'] in ('completed', 'insufficient_evidence')
-            if data['status'] == 'completed':
-                assert data['verified'] is True
+            assert data['status'] == 'completed' and data['verified'] is True
+            assert data['verification_method'] == 'deterministic_csv'
+            assert all(str(value) in data['response'] for value in [608, 607, 621, 12287, 12449, 13587])
             replay = client.post(args.api + '/chat', headers=headers, json=payload)
             assert replay.status_code == 200 and replay.json() == data
             conflict = client.post(args.api + '/chat', headers=headers, json={**payload, 'message': '另一条消息'})
@@ -95,12 +96,19 @@ def main():
         check('live_candidate_scope_change', scope_change)
 
         def policy_answer():
-            _, data = chat('河北工业大学普通本科专业学费标准是多少？')
+            _, data = chat('2026年河北工业大学住宿费有哪几个收费标准？')
             assert data['knowledge_used'] and data['citations']
             assert data['status'] == 'completed' and data['verified'] is True
+            assert all(str(value) in data['response'] for value in [700, 970, 1400])
             return {'status': data['status'], 'verified': data['verified'],
                     'citation_count': len(data['citations'])}
-        check('live_rag_verified_tuition_answer', policy_answer)
+        check('live_rag_verified_accommodation_answer', policy_answer)
+
+        def missing_tuition_rates():
+            _, data = chat('河北工业大学普通本科专业学费标准是多少？')
+            assert data['status'] == 'insufficient_evidence' and data['verified'] is False
+            return {'status': data['status'], 'verified': data['verified'], 'stop_reason': data['stop_reason']}
+        check('live_rag_missing_tuition_rates_abstain', missing_tuition_rates)
 
     report = {'mode': 'live_container_http_smoke', 'build_mode': args.build_mode,
               'commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
@@ -110,7 +118,7 @@ def main():
               'checks': rows, 'passed': sum(row['passed'] for row in rows), 'total': len(rows),
               'limitations': 'Small functional smoke; no statistical answer-quality claim. '
                              'Local-base reuse does not validate a clean standard Dockerfile build.'}
-    path = ROOT / 'experiments/v2/reports/deployment_smoke.json'
+    path = ROOT / args.report
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     return 0 if report['passed'] == report['total'] else 1
 

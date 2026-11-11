@@ -12,11 +12,13 @@
 | --- | --- | --- |
 | A：基础契约与基线 | TaskState、字段来源与条件失效、工具完整 Schema 校验、请求预算、脱敏元数据 Trace、必需 CSV 调用 | [contracts](../../core/contracts.py)、[task_state](../../core/task_state.py)、[runtime](../../core/runtime.py)、[ChatService](../../core/chat_service.py) |
 | B：关键可靠性 | 匿名会话令牌、请求回执、同 ID 内容冲突、会话租约、整轮原子提交、摘要失败保留原文、并发压缩保护、有界维护队列 | [turn_store](../../memory/turn_store.py)、[conversation_memory](../../memory/conversation_memory.py)、[API](../../api/main.py) |
-| C：Agentic RAG 首版 | 按年份/子问题规划、严格年份过滤、复用召回重排、证据 ID 校验、有限补查、回答核验与一次修复、资料不足回退 | [agentic](../../rag/agentic.py)、[tool_manager](../../mcp/tool_manager.py)、[knowledge_base](../../mcp/knowledge_base.py) |
+| C：Agentic RAG 与知识版本 | 按年份/子问题规划、证据核验与有限补查、确定性 CSV 短路径、回答核验/回退、原文展示、活动版本原子切换与回退 | [admission_answer](../../core/admission_answer.py)、[agentic](../../rag/agentic.py)、[knowledge_base](../../mcp/knowledge_base.py)、[knowledge_catalog](../../mcp/knowledge_catalog.py) |
 
 关键行为：复合问题只要需要录取数字，就先查 CSV；查询失败或条件不足时直接说明/澄清。更换省份、科类、考试年度或考生后，相关成绩字段失效，不从旧历史文本重新补回。回答必须引用本次真实证据，数字先检查是否出现在依据中，再由模型检查对应关系；这仍不是形式化的语义正确性证明。
 
-当前仍待实施：BM25/Embedding 的正式对照、资料活动版本的原子发布、带来源的长期事实库、PostgreSQL、LangGraph Checkpoint、标准 MCP、Composer 与动态 Skills。已有摘要/画像只修复了写入可靠性，不能称为“可验证长期记忆已完成”。模型驱动的通用工具循环也尚未接入角色 Agent。
+纯数字问题使用 CSV 固定模板生成，`verification_method=deterministic_csv` 表示程序确保数字与工具记录一致；混合问题继续执行证据核验。引用记录文档、修订和片段 ID、哈希与本次原文，前端可展开核对。
+
+当前仍待实施：BM25/Embedding 的正式对照、带来源的长期事实库、PostgreSQL、LangGraph Checkpoint、标准 MCP、Composer 与动态 Skills。已有摘要/画像只修复了写入可靠性，不能称为“可验证长期记忆已完成”。模型驱动的通用工具循环也尚未接入角色 Agent。
 
 ## 文件与运行数据
 
@@ -41,8 +43,8 @@ Redis 使用 `v2:` 命名空间，Chroma 使用 `hello_hebut_v2`、`episodic_v2`
 从项目根目录执行，依赖安装使用现有 `requirements.txt`。真实 Redis 测试需要 PATH 中存在 `redis-server`；测试自行启动随机端口的专用 Redis 并清理，不连接或清空已有实例。
 
 ```powershell
-python -X utf8 experiments/v2/scripts/run_tests.py --suite experiments/v2/legacy_tests --report experiments/v2/reports/legacy_after.json
-python -X utf8 experiments/v2/scripts/run_tests.py --report experiments/v2/reports/regression.json
+python -X utf8 experiments/v2/scripts/run_tests.py --suite experiments/v2/legacy_tests --report experiments/v2/reports/stage2_legacy.json
+python -X utf8 experiments/v2/scripts/run_tests.py --report experiments/v2/reports/stage2_regression.json
 python -X utf8 experiments/v2/scripts/compare_routing.py
 ```
 
@@ -57,19 +59,32 @@ python -X utf8 experiments/v2/scripts/live_smoke.py
 `commit` 记录执行时的 Git HEAD；提交前运行的报告以 `source_hashes` 和 `test_hashes` 标识实际受测文件。
 
 - [baseline.json](reports/baseline.json)：修改业务代码前原有 45 项离线测试通过，保留当时源码哈希。
-- [legacy_after.json](reports/legacy_after.json)、[regression.json](reports/regression.json)：最终回归结果，以报告中的测试数、失败数、源码/测试哈希为准。
+- [stage2_legacy.json](reports/stage2_legacy.json)、[stage2_regression.json](reports/stage2_regression.json)：当前批次 45＋50 项回归；不带 stage2 前缀的报告保留首批结果。
 - [routing_comparison.json](reports/routing_comparison.json)：8 个固定案例，原 ChatService 必需工具路由 4/8，v2 为 8/8。使用脚本化意图/回答和真实 CSV，只衡量工具路由，不能解释为整体回答准确率提升。
 - [live_smoke.json](reports/live_smoke.json)：真实模型、合成政策资料的两例冒烟通过；验证跨年证据充分与缺失年份拒绝放行，不代表正式检索指标或全面注入防御评测。
 
-前端构建及 Compose 配置解析已通过。2026-11-11 补验时 Docker Engine 已启动，五个 v2 服务均健康；真实 ONNX/Chroma 向量链路已通过。HTTP、真实模型、幂等与条件变更的 [容器冒烟报告](reports/deployment_smoke.json) 为 4/5：学费正向样例未通过完整回答核验，实际返回资料不足。CSV 风险样例也使用保守回退；基础设施可运行不等于回答质量已全部达标。
+五个 v2 服务健康。最新 [容器验收](reports/stage2_deployment.json) 6/6：健康/代理/鉴权、向量检索、CSV 完整回答与幂等、条件变更、住宿费有证据回答、学费缺资料拒答。[首批 4/5 报告](reports/deployment_smoke.json) 保留；新版增加有具体原文金额的正向例，将原学费问题明确标注为缺资料，未把它冒充可回答问题。
+
+[真实存储与检索报告](reports/stage2_storage_retrieval.json) 中，4 项真实 Chroma/Redis 发布、故障、快照和回退检查通过。6 条开发案例包含 4 条可回答问题（Recall@8=75%、nDCG@8=0.375）和 2 条缺年份问题（均为空）；前者仍有校区漏召回。该集合从已收录正文整理，待人工复核，未使用重排，不代表独立测试集或最终答案准确率。
 
 标准 `docker compose up -d --build` 遇到基础镜像元数据长度校验错误。本次复用本机 `hellohebut-hellohebut:latest` 与 `hellohebut-frontend:latest`，补装 `jsonschema==4.19.2` 并覆盖 v2 源码/前端产物完成验证；临时 Dockerfile、忽略规则和 Compose 覆盖位于 Git 忽略的 `tmp/`。正式全新构建仍待验收，现有 v2 镜像可用 `docker compose up -d --no-build` 启动。
 
-运行中的服务可用以下脚本复测（调用真实模型并产生费用；当前学费正向样例仍会记录未通过）：
+运行中的服务可用以下脚本复测（第一条调用真实模型并产生费用；第二条创建并清理独立测试集合，对项目资料只读）：
 
 ```powershell
 python -X utf8 experiments/v2/scripts/deployment_smoke.py --build-mode reused_local_base
+python -X utf8 experiments/v2/scripts/container_checks.py
 ```
+
+## 知识发布与回退
+
+导入统一为“写不可变修订 → 读回校验 → Redis CAS 切换活动清单”。并发发布冲突返回 409；失败和退休片段留在 Chroma，但检索只接受活动清单。每个聊天请求固定一份快照，缓存键包含发布代际，因此其他进程发布后新请求也不会误用旧缓存。Redis 清单是当前权威数据，需连同现有 AOF 数据卷持久化；后续再统一迁入 PostgreSQL。
+
+`GET /knowledge/stats` 返回活动片段数、发布代际和可回退代际。`POST /knowledge/add`、`/knowledge/upload` 统一发布；`POST /knowledge/rollback` 接收 `{"generation": 目标代际}`，发布一个新代际指向历史内容。最近五次历史支持回退，旧修订暂不自动清理，以免破坏正在执行的快照；因此 Chroma 原始 count 可能大于活动 count。已有无修订标签的片段不会参与 v2 活动检索。
+
+默认文档身份由来源、标题、年份生成；改标题且需替换同一逻辑文档时显式传稳定的 `document_id`。整份部署文件重导入会替换该文件的文档集合。`valid_from/valid_until` 目前只保存元数据，尚未实现自动过期调度；年份过滤仍按明确的 `effective_year`。
+
+管理操作统一要求 `X-Admin-Token`；未设置 `ADMIN_API_TOKEN` 时返回 503，不再默认开放写入。发布回退同样需要令牌。普通 `/session` 与 `/chat` 不受此设置影响。
 
 ## ONNX 在哪里使用
 
@@ -117,4 +132,4 @@ $answer
 
 可设置 `HELLOHEBUT_AGENTIC_RAG=false` 回退为原检索流程，身份、原子提交与 CSV 必需调用继续生效。`V2_CHAT_TIMEOUT_S` 默认 50 秒；补检索最多 3 轮/6 个查询，每请求最多 8 次工具调用和 16 次模型调用。模型核验不可用时保守返回原始证据/缺项，不标记核验通过。
 
-下一批候选工作是补齐完整回答与标准构建验收、人工标注检索集和资料版本发布；先等待本批审查，再决定是否推进长期记忆与 Checkpoint。
+下一批先补标准构建、检索漏召回与开发集人工复核，再评估是否进入长期记忆；先等待本批审查。

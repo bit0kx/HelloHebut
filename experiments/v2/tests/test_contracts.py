@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 
 from core.contracts import TaskState, EvidenceVerdict
 from core.task_state import merge_state, needs_admission
+from core.admission_answer import numeric_only
 from core.runtime import CURRENT_RUN, RunContext, BudgetExceeded
 from mcp.tool_manager import MCPToolManager, Tool
 from mcp.knowledge_indexing import split_text
@@ -10,6 +11,12 @@ from mcp.knowledge_base import KnowledgeBase
 
 
 class StateTests(unittest.TestCase):
+    def test_numeric_shortcut_does_not_drop_policy_or_other_questions(self):
+        self.assertTrue(numeric_only('河北物理类位次12000，计算机录取风险如何？'))
+        for message in ['计算机录取风险如何，还有住宿费多少？', '计算机稳吗？学校男女比例呢？',
+                        '计算机录取风险和转专业要求', '能上吗，学费是多少']:
+            self.assertFalse(numeric_only(message))
+
     def test_scope_change_invalidates_old_rank(self):
         previous = TaskState(entities={'province': ['河北'], 'rank': ['12000'], 'subject_combination': ['物理']})
         result = merge_state(previous, {'province': ['天津']}, '换天津考生呢', 'r2')

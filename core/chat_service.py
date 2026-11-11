@@ -14,6 +14,7 @@ from core.intent_recognizer import IntentCategory, IntentRecognizer
 from mcp.tool_manager import MCPToolManager
 from core.contracts import TaskState
 from core.task_state import merge_state, needs_admission
+from core.admission_answer import numeric_only, render_admission
 from core.runtime import CURRENT_RUN, RunContext
 from rag.agentic import AgenticRAG, RetrievalOutcome
 
@@ -59,6 +60,7 @@ class ChatResult:
     status: str = 'completed'
     verified: Optional[bool] = None
     stop_reason: str = ''
+    verification_method: str = ''
 
 
 class ChatService:
@@ -178,6 +180,19 @@ class ChatService:
                 citations=admission_citations, request_id=request_id, trace_id=run.run_id,
                 status='clarification' if tool_status == 'needs_clarification' else 'insufficient_evidence',
                 verified=False, stop_reason='admission_' + tool_status), state
+        if self._rag and admission_used and numeric_only(message):
+            try:
+                response = render_admission(admission_results[0])
+            except (ValueError, KeyError, TypeError):
+                pass  # Incomplete records continue to the conservative evidence path.
+            else:
+                run.events.append({'stage': 'answer_verification', 'method': 'deterministic_csv', 'passed': True})
+                return ChatResult(
+                    conv_id=conv_id, response=response, intent='score_risk', agent_type='risk', escalated=False,
+                    latency_ms=round((time.monotonic()-started_at)*1000, 1), knowledge_used=True,
+                    admission_data_used=True, citations=admission_citations, entities=entities,
+                    request_id=request_id, trace_id=run.run_id, status='completed', verified=True,
+                    stop_reason='csv_answer_complete', verification_method='deterministic_csv'), state
         outcome = RetrievalOutcome()
         with run.span('retrieval'):
             if self._rag and self._should_use_knowledge(message):
@@ -221,12 +236,16 @@ class ChatService:
                 # A numerically answered risk question can succeed without unrelated policy evidence.
                 evidence_ready = outcome.sufficient or (admission_used and intent == IntentCategory.SCORE_RISK)
                 verified = verdict.passed and evidence_ready
+                run.events.append({'stage': 'answer_check', 'passed': verified,
+                                   'evidence_ready': evidence_ready, 'unsupported_count': len(verdict.unsupported_claims)})
                 if not verified and evidence_ready and run.model_calls < run.max_models:
                     request.context += '\n[修复要求]删除无证据结论，不得编造数字或概率。原回答：' + response
                     repaired = await self._orchestrator.run(request)
                     response = self._sanitize_citations(repaired.response, citations)
                     verdict = await self._rag.verify_answer(message, response, outcome.evidence, admission_data)
                     verified = verdict.passed
+                    run.events.append({'stage': 'answer_repair_check', 'passed': verified,
+                                       'unsupported_count': len(verdict.unsupported_claims)})
                 if not verified:
                     final_status = 'insufficient_evidence'
                     response = self._evidence_fallback(outcome, admission_data, len(knowledge_citations))
@@ -243,7 +262,8 @@ class ChatService:
             citations=citations,
             entities=entities,
             request_id=request_id, trace_id=run.run_id, status=final_status,
-            verified=verified, stop_reason=outcome.stop_reason if self._rag else 'legacy_pipeline',
+            verified=verified, stop_reason=('answer_verified' if verified else outcome.stop_reason) if self._rag else 'legacy_pipeline',
+            verification_method='evidence_verifier' if verified is not None else '',
         ), state
 
     @staticmethod

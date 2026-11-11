@@ -4,6 +4,8 @@
 
 阶段简报单独维护在 [v2 阶段更新](experiments/v2/STAGE_UPDATES.md)。每批工作完成后更新简报并暂停供用户审查，再根据反馈继续；本文不重复堆叠实施日志。
 
+当前批次补齐第 2 阶段的确定性数字回答、知识活动版本发布/回退与引用原文展示；第 3 阶段的长期事实库和 PostgreSQL 尚未启动。检索质量目标与标准镜像构建仍有未通过项，不能将本批功能交付等同于整阶段指标全部达标。
+
 依据：[项目技术现状](TECHNICAL_DESIGN.md)、[主要流程](main_flow.md)、[Agent 调研交接材料](agent_research_codex_context_2026-11.txt)，以及本地 EchoMind Python 源码和 Java 版中经筛选的可迁移设计。调研材料已替代无法抓取正文的 ChatGPT 分享链接。方案基于 HelloHebut 提交 `d650853`，不重复现有部署说明和算法细节。
 
 ## 1. 推荐路线与预期成果

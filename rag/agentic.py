@@ -43,6 +43,7 @@ class AgenticRAG:
 
     @staticmethod
     def requested_years(question):
+        question = re.sub(r'(?:位次|排名|排位)\s*(?:为|是|约)?\s*\d+|\d+\s*(?:分|名)', '', question)
         return sorted({int(y) for y in re.findall(r'(?<!\d)(20\d{2})(?!\d)', question)})
 
     async def plan(self, question):
@@ -75,7 +76,8 @@ class AgenticRAG:
         return Evidence(evidence_id='ev_' + hashlib.sha256(identity.encode()).hexdigest()[:24],
                         content=raw[:1800], content_hash=digest, version=version, year=year,
                         title=str(item.get('title', '')), source_url=str(item.get('source_url', '')),
-                        source_file=str(item.get('source_file', '')))
+                        source_file=str(item.get('source_file', '')), document_id=str(item.get('document_id', '')),
+                        revision_id=str(item.get('revision_id', '')), chunk_id=str(item.get('id', '')))
 
     async def verify(self, question, evidence):
         payload = [e.model_dump() for e in evidence]
@@ -176,6 +178,8 @@ class AgenticRAG:
             return AnswerVerdict(passed=False, unsupported_claims=['缺失引用或引用编号无效'])
         # Exclude citation ordinals when testing unsupported numerical values.
         body = re.sub(r'\[来源\d+\]', '', answer)
+        body = re.sub(r'^\s*\d+[.)、]\s+', '', body, flags=re.MULTILINE)
+        body = re.sub(r'(?<=\d),(?=\d{3}(?:\D|$))', '', body)
         reference = ' '.join(e.content for e in evidence) + json.dumps(admission_data or {}, ensure_ascii=False) + question
         allowed = set(re.findall(r'\d+(?:\.\d+)?', reference))
         if set(re.findall(r'\d+(?:\.\d+)?', body)) - allowed:
@@ -198,7 +202,9 @@ class AgenticRAG:
         for number, ev in enumerate(outcome.evidence, 1):
             citations.append({'title': ev.title, 'url': ev.source_url, 'source_file': ev.source_file,
                               'effective_year': ev.year, 'document_version': ev.version,
-                              'evidence_id': ev.evidence_id, 'content_hash': ev.content_hash})
+                              'evidence_id': ev.evidence_id, 'content_hash': ev.content_hash,
+                              'document_id': ev.document_id, 'revision_id': ev.revision_id,
+                              'chunk_id': ev.chunk_id, 'excerpt': ev.content})
             parts.append(f'[来源{number}] {ev.title}；年份：{ev.year}；版本：{ev.version}\n{ev.content}')
         if outcome.verdict:
             parts.append('未解决问题：' + '；'.join(outcome.verdict.missing_facts))

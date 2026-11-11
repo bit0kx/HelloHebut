@@ -99,6 +99,28 @@ class ChatIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.status, 'insufficient_evidence')
         self.orchestrator.run.assert_not_awaited()
 
+    async def test_pure_numeric_answer_is_verified_without_policy_or_generator(self):
+        self.service._rag = SimpleNamespace(retrieve=AsyncMock())
+        result = await self.service.handle('河北物理类位次12000，计算机录取风险如何？', 'u', 'c')
+        self.assertTrue(result.verified)
+        self.assertEqual(result.verification_method, 'deterministic_csv')
+        self.assertEqual(result.status, 'completed')
+        self.assertIn('13587', result.response)
+        self.assertIn('不是未来录取概率', result.response)
+        self.orchestrator.run.assert_not_awaited()
+        self.service._rag.retrieve.assert_not_awaited()
+
+    async def test_admin_mutations_require_configured_token(self):
+        import api.main as api
+        with patch.dict('os.environ', {'ADMIN_API_TOKEN': ''}):
+            with self.assertRaises(api.HTTPException) as error:
+                api.require_admin(None)
+            self.assertEqual(error.exception.status_code, 503)
+        with patch.dict('os.environ', {'ADMIN_API_TOKEN': 'test-secret'}):
+            with self.assertRaises(api.HTTPException):
+                api.require_admin('wrong')
+            api.require_admin('test-secret')
+
     async def test_unverified_answer_falls_back_to_real_csv_candidates(self):
         self.tools.search_once = AsyncMock(return_value=SimpleNamespace(success=True, data=[]))
         async def insufficient(prompt, schema):

@@ -89,6 +89,10 @@
                 </a>
                 <span v-else>来源{{ index + 1 }}：{{ citation.title }}</span>
                 <small v-if="citation.effective_year">（{{ citation.effective_year }}）</small>
+                <details v-if="citation.excerpt">
+                  <summary>查看本次引用原文</summary>
+                  <p>{{ citation.excerpt }}</p>
+                </details>
               </li>
             </ul>
           </article>

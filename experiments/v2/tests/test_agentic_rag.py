@@ -12,6 +12,18 @@ def item(year=2026, name='a', text='计算机专业要求选考物理。'):
 
 
 class RagTests(unittest.IsolatedAsyncioTestCase):
+    def test_candidate_rank_is_not_a_policy_year(self):
+        self.assertEqual(AgenticRAG.requested_years('位次2026，计算机和电气怎么选'), [])
+        self.assertEqual(AgenticRAG.requested_years('排名为2025，比较2025与2026年政策'), [2025, 2026])
+
+    async def test_list_ordinals_and_grouped_numbers_do_not_false_reject(self):
+        judge = AsyncMock(return_value=AnswerVerdict(passed=True))
+        evidence = AgenticRAG.register(item(text='最低位次12000。'))
+        verdict = await AgenticRAG(None, model_json=judge).verify_answer(
+            '最低位次', '1. 最低位次12,000[来源1]', [evidence])
+        self.assertTrue(verdict.passed)
+        judge.assert_awaited_once()
+
     async def test_year_queries_use_separate_sources_even_at_same_url(self):
         manager = SimpleNamespace(search_once=AsyncMock(side_effect=[
             SimpleNamespace(success=True, data=[item(2025)]),
@@ -26,6 +38,9 @@ class RagTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.queries, 2)
         self.assertEqual({e.year for e in result.evidence}, {2025, 2026})
         self.assertEqual(len(AgenticRAG.context(result)[1]), 2)
+        citation = AgenticRAG.context(result)[1][0]
+        self.assertEqual(citation['chunk_id'], 'a')
+        self.assertEqual(citation['excerpt'], result.evidence[0].content)
         self.assertEqual([c.kwargs['year'] for c in manager.search_once.call_args_list], [2025, 2026])
 
     async def test_cross_year_result_is_rejected_even_if_tool_returns_it(self):
