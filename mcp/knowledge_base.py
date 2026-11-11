@@ -46,7 +46,7 @@ class KnowledgeBase:
     ):
         import chromadb
 
-        # 优先连接独立 ChromaDB 服务（服务端内置 embedding 模型，客户端无需下载）
+        # 优先连接独立 ChromaDB 服务；默认 Embedding 在本 Python 客户端计算。
         self._use_server = False
         try:
             # HttpClient 默认也会初始化 ChromaDB telemetry；显式关闭避免 posthog 兼容性错误日志。
@@ -65,8 +65,8 @@ class KnowledgeBase:
                 settings=chromadb.Settings(anonymized_telemetry=False),
             )
 
-        # 使用服务端时不传 embedding_function，让服务端处理
-        # 本地模式时也不传，使用 ChromaDB 默认的（会触发模型下载）
+        # 两种模式都使用默认 all-MiniLM-L6-v2；传 documents/query_texts 时客户端
+        # 通过 ONNX Runtime 向量化，再将向量交给 Chroma。Dockerfile 已预下载模型。
         self._collection = self._client.get_or_create_collection(
             name=collection_name or self.COLLECTION_NAME,
             metadata={"description": "河北工业大学普通本科报考咨询官方知识库"},

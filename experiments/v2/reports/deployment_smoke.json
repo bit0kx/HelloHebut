@@ -1,0 +1,74 @@
+{
+  "mode": "live_container_http_smoke",
+  "build_mode": "reused_local_base",
+  "commit": "b1e5db78355d6c90c2d78e8fd1dde90e95d04e9f",
+  "source_hashes": {
+    "core/chat_service.py": "a248c2a32c7a9a76fc59090b413aa6812a68229fea981755456b85d4c118749c",
+    "core/contracts.py": "3f7cefda11e474749a59faa547f381f018f3e3b6fb6e690ae03c0b24adb58872",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "6729a8cdfd8b38ba7364fc983f734a737a658630e8c2f197ef460f4f4082a62a",
+    "core/runtime.py": "ad62062e6fbd12ee39480f60baca8844c91cf7d75fa9eab100f2f206cf3ec848",
+    "core/skill_loader.py": "fc909656432994fe80d8798b4a204827210bc9271c6ace0044efd56028cc86f0",
+    "core/task_state.py": "913849e27f17fe2599bf4742025fe16d1215a31920b552aecf046201e92d1603",
+    "mcp/admission_data.py": "2c87730895b553d3c47403be3f3e9a364c044afc1225f524a25650a69f722f59",
+    "mcp/knowledge_base.py": "765663f1900505d907c3ab0cf6e2e82535c345eaa2b9d1d8a578be7e0fc01275",
+    "mcp/knowledge_indexing.py": "cdb3aafbc820706ba2b184ff45cd1371793301f3d4148ae25edd6e519182996e",
+    "mcp/tool_manager.py": "3f9a5e124f03c93dd5c38c81a8da27cede1117b81deee99d10379d56aa870681",
+    "memory/conversation_memory.py": "975cb55cead1d5ac04d460227501a3274402db92da16fb7ac4d51e4f83d83624",
+    "memory/turn_store.py": "98960c63d16b5bf1a7c7999b29b892bdc47fa84294212c86a8a6d274f9a1a4f5",
+    "rag/agentic.py": "0528b99c8b985d4d8150a52954536bdee5ad3e6388f93480ab7d5d2253ab571b",
+    "api/main.py": "3b4cf580d8a2dde8ef43612ede5e2ac820798360251831ae0439c7a3707cca35"
+  },
+  "checks": [
+    {
+      "check": "health_frontend_proxy_and_auth",
+      "passed": true,
+      "duration_s": 0.078
+    },
+    {
+      "check": "actual_onnx_embedding_and_chroma_query",
+      "passed": true,
+      "onnxruntime": "1.27.0",
+      "chroma": "0.5.23",
+      "dimensions": 384,
+      "documents": 205,
+      "vector_results": 3,
+      "duration_s": 1.906
+    },
+    {
+      "check": "live_csv_chat_replay_and_conflict",
+      "passed": true,
+      "status": "insufficient_evidence",
+      "verified": false,
+      "citation_count": 8,
+      "idempotent_replay": true,
+      "duration_s": 24.266
+    },
+    {
+      "check": "live_candidate_scope_change",
+      "passed": true,
+      "status": "clarification",
+      "old_rank_invalidated": true,
+      "duration_s": 2.671
+    },
+    {
+      "check": "live_rag_verified_tuition_answer",
+      "passed": false,
+      "error_type": "AssertionError",
+      "duration_s": 18.954,
+      "status": "insufficient_evidence",
+      "verified": false,
+      "stop_reason": "no_new_evidence",
+      "citation_count": 2,
+      "knowledge_used": true
+    }
+  ],
+  "passed": 4,
+  "total": 5,
+  "limitations": "Small functional smoke; no statistical answer-quality claim. Local-base reuse does not validate a clean standard Dockerfile build.",
+  "review_notes": [
+    "All five Compose services were healthy. Standard build failed on base-image metadata size validation; acceptance used existing local application images plus the new dependency and current source.",
+    "Tuition case expected a fully verified answer, but the available document only directs users to provincial plans and approved rates. Returned insufficient_evidence / verified=false / no_new_evidence. The positive fixture needs review against actual answerable source content.",
+    "CSV case passed data access, citations, replay and conflict checks but returned a conservative fallback; it is not a verified end-to-end answer success."
+  ]
+}

@@ -2,6 +2,8 @@
 
 本目录集中保存评测、测试、报告和运行中间产物；业务实现复用根目录的 `core/`、`memory/`、`mcp/`、`api/`，仅新增 `rag/` 检索控制模块。方案见 [AGENT_EVOLUTION_PLAN.md](../../AGENT_EVOLUTION_PLAN.md)。
 
+每批完成后的简要更新与审查状态见 [STAGE_UPDATES.md](STAGE_UPDATES.md)，本页只维护当前运行和验证说明。
+
 ## 本轮范围与状态
 
 按讨论后的依赖顺序实施前三个落地步骤：基础契约与基线、关键可靠性、Agentic RAG 首版。它们覆盖六周方案前两阶段的核心链路，并提前修复会话可靠性；不代表六周方案的全部验收项已完成。
@@ -59,7 +61,27 @@ python -X utf8 experiments/v2/scripts/live_smoke.py
 - [routing_comparison.json](reports/routing_comparison.json)：8 个固定案例，原 ChatService 必需工具路由 4/8，v2 为 8/8。使用脚本化意图/回答和真实 CSV，只衡量工具路由，不能解释为整体回答准确率提升。
 - [live_smoke.json](reports/live_smoke.json)：真实模型、合成政策资料的两例冒烟通过；验证跨年证据充分与缺失年份拒绝放行，不代表正式检索指标或全面注入防御评测。
 
-本轮前端构建及 Compose 配置解析已通过。当前机器 Docker Engine 未运行，Anaconda 的 ONNX Runtime DLL 无法初始化，因此尚未完成完整 Docker 服务启动和真实 Chroma 向量召回的端到端验收。Redis 集成测试使用真实独立服务；LLM 冒烟使用真实模型服务，均未以模拟结果冒充完整部署验证。
+前端构建及 Compose 配置解析已通过。2026-11-11 补验时 Docker Engine 已启动，五个 v2 服务均健康；真实 ONNX/Chroma 向量链路已通过。HTTP、真实模型、幂等与条件变更的 [容器冒烟报告](reports/deployment_smoke.json) 为 4/5：学费正向样例未通过完整回答核验，实际返回资料不足。CSV 风险样例也使用保守回退；基础设施可运行不等于回答质量已全部达标。
+
+标准 `docker compose up -d --build` 遇到基础镜像元数据长度校验错误。本次复用本机 `hellohebut-hellohebut:latest` 与 `hellohebut-frontend:latest`，补装 `jsonschema==4.19.2` 并覆盖 v2 源码/前端产物完成验证；临时 Dockerfile、忽略规则和 Compose 覆盖位于 Git 忽略的 `tmp/`。正式全新构建仍待验收，现有 v2 镜像可用 `docker compose up -d --no-build` 启动。
+
+运行中的服务可用以下脚本复测（调用真实模型并产生费用；当前学费正向样例仍会记录未通过）：
+
+```powershell
+python -X utf8 experiments/v2/scripts/deployment_smoke.py --build-mode reused_local_base
+```
+
+## ONNX 在哪里使用
+
+`chromadb==0.5.23` 的默认 Embedding 函数使用 ONNX Runtime 运行 `all-MiniLM-L6-v2`，输出 384 维向量。项目没有显式传入向量时，Python 客户端负责计算，即使数据库使用 `HttpClient` 连接远端 Chroma 也是如此。
+
+| 位置 | 触发向量化的操作 |
+| --- | --- |
+| `mcp/knowledge_base.py` | 文档 `upsert(documents=...)` 与语义检索 `query(query_texts=...)` |
+| `memory/conversation_memory.py` | 历史摘要入库、相关历史检索、用户画像 `upsert(documents=...)`；画像读取本身按用户过滤，不做语义检索 |
+| `Dockerfile` | 预下载模型并复制到应用用户缓存，避免运行时下载 |
+
+CSV 查询、Redis 状态/幂等和远端大模型生成本身不使用 ONNX。此前错误来自 Windows Anaconda 的 DLL 加载；容器使用独立 Linux 环境，ONNX Runtime 1.27.0 已完成真实推理，因此 Docker 部署不需要先修复该 Windows 环境。
 
 ## 启动 v2
 
@@ -95,4 +117,4 @@ $answer
 
 可设置 `HELLOHEBUT_AGENTIC_RAG=false` 回退为原检索流程，身份、原子提交与 CSV 必需调用继续生效。`V2_CHAT_TIMEOUT_S` 默认 50 秒；补检索最多 3 轮/6 个查询，每请求最多 8 次工具调用和 16 次模型调用。模型核验不可用时保守返回原始证据/缺项，不标记核验通过。
 
-下一轮先补真实 Chroma 部署验收、人工标注检索集和资料版本发布，再推进长期记忆与 Checkpoint；按照每轮实测结果调整路线。
+下一批候选工作是补齐完整回答与标准构建验收、人工标注检索集和资料版本发布；先等待本批审查，再决定是否推进长期记忆与 Checkpoint。
