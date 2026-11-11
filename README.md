@@ -2,6 +2,8 @@
 
 基于 Python、FastAPI 和 Anthropic Messages API 的多 Agent 咨询项目，结合官方资料 RAG、CSV 录取数据、Skills 与分层记忆，为本科报考问题提供带来源的回答。
 
+当前 `v2` 已接入结构化状态、请求幂等与原子提交、证据驱动的有限检索和回答核验。运行方式、阶段进度及验收边界以 [v2 实施与验证指南](experiments/v2/README.md) 为准；历史流程与技术文档保留为 v1 基线。
+
 ## 主要功能
 
 | 场景 | 能力 |
@@ -18,14 +20,15 @@ Agent 由应用规则编排，工具在回答前由业务服务调用。风险�
 
 | 文档 | 主要内容 |
 | --- | --- |
+| [v2 实施与验证](experiments/v2/README.md) | 已落地功能、独立实验目录、会话接口、启动与测试命令 |
 | [主要流程](main_flow.md) | 服务启动、聊天时序、知识导入、风险案例、记忆与评测流程 |
 | [技术实现与接口索引](TECHNICAL_DESIGN.md) | 技术与代码入口、算法、参数、数据结构、接口及实现边界 |
-| [Agent 精进方案](AGENT_EVOLUTION_PLAN.md) | 基于调研与 EchoMind 的升级设计、实施阶段、验收及消融实验（待实施） |
+| [Agent 精进方案](AGENT_EVOLUTION_PLAN.md) | 基于调研与 EchoMind 的升级设计、实施阶段、验收及消融实验（分阶段实施中） |
 | [部署与验证](DEPLOY.md) | 环境配置、启动命令、验证示例、维护和排障 |
 | [Skills 编写说明](skills/README.md) | 规则文件格式、匹配方式、内容预算和热加载 |
 | [前端说明](frontend/README.md) | 页面功能、本地开发及代理配置 |
 
-首次使用按“[部署](DEPLOY.md) → [主要流程](main_flow.md) → [技术实现](TECHNICAL_DESIGN.md)”阅读。后端完整调试入口为 `http://localhost:8000/docs`。
+首次使用 v2 请先阅读 [实施与验证指南](experiments/v2/README.md)，后端完整调试入口为 `http://localhost:18000/docs`。
 
 ## 技术组成
 

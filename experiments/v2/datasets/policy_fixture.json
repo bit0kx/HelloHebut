@@ -1,0 +1,4 @@
+[
+  {"id":"fixture-2025","title":"测试专业甲2025年规则（合成测试资料）","content":"本条仅用于软件测试。2025年测试专业甲要求选考物理，无其他选科限制。","effective_year":2025,"document_version":"fixture-v1","source_file":"experiments/v2/datasets/policy_fixture.json"},
+  {"id":"fixture-2026","title":"测试专业甲2026年规则（合成测试资料）","content":"本条仅用于软件测试。2026年测试专业甲要求同时选考物理和化学。","effective_year":2026,"document_version":"fixture-v1","source_file":"experiments/v2/datasets/policy_fixture.json"}
+]

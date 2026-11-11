@@ -1,0 +1,157 @@
+{
+  "mode": "live_model_fixture_smoke",
+  "model": "deepseek-v4-pro",
+  "limitations": "Two synthetic-document cases; not full Chroma/API startup or a statistical quality evaluation.",
+  "cases": [
+    {
+      "question": "测试专业甲2025年和2026年选科要求有哪些变化？",
+      "expected_sufficient": true,
+      "sufficient": true,
+      "stop_reason": "sufficient",
+      "rounds": 1,
+      "queries": 2,
+      "passed": true,
+      "trace": {
+        "schema_version": 1,
+        "run_id": "09a42b7b46514d338572a007a542b3ed",
+        "status": "complete",
+        "latency_ms": 3156.0,
+        "tool_calls": 2,
+        "model_calls": 3,
+        "input_tokens": 1197,
+        "output_tokens": 169,
+        "events": [
+          {
+            "stage": "tool_call",
+            "tool": "knowledge_search",
+            "argument_keys": [
+              "query",
+              "top_k",
+              "year"
+            ],
+            "read_only": true
+          },
+          {
+            "stage": "llm",
+            "model": "deepseek-v4-pro",
+            "input_tokens": 159,
+            "output_tokens": 12,
+            "status": "ok",
+            "duration_ms": 1016.0
+          },
+          {
+            "stage": "tool_call",
+            "tool": "knowledge_search",
+            "argument_keys": [
+              "query",
+              "top_k",
+              "year"
+            ],
+            "read_only": true
+          },
+          {
+            "stage": "llm",
+            "model": "deepseek-v4-pro",
+            "input_tokens": 156,
+            "output_tokens": 12,
+            "status": "ok",
+            "duration_ms": 468.0
+          },
+          {
+            "stage": "llm",
+            "model": "deepseek-v4-pro",
+            "input_tokens": 882,
+            "output_tokens": 145,
+            "status": "ok",
+            "duration_ms": 1672.0
+          },
+          {
+            "stage": "evidence_check",
+            "round": 1,
+            "evidence_ids": [
+              "ev_95b9aafe5e38d8c63f7b03de",
+              "ev_8944226fb94694f442fc733c"
+            ],
+            "versions": [
+              "fixture-v1"
+            ],
+            "sufficient": true
+          }
+        ]
+      }
+    },
+    {
+      "question": "测试专业甲2024年选科要求是什么？",
+      "expected_sufficient": false,
+      "sufficient": false,
+      "stop_reason": "no_new_evidence",
+      "rounds": 2,
+      "queries": 2,
+      "passed": true,
+      "trace": {
+        "schema_version": 1,
+        "run_id": "28ffa69c63bf46ba816ac8e2a7acd1cd",
+        "status": "complete",
+        "latency_ms": 3000.0,
+        "tool_calls": 2,
+        "model_calls": 2,
+        "input_tokens": 642,
+        "output_tokens": 158,
+        "events": [
+          {
+            "stage": "tool_call",
+            "tool": "knowledge_search",
+            "argument_keys": [
+              "query",
+              "top_k",
+              "year"
+            ],
+            "read_only": true
+          },
+          {
+            "stage": "llm",
+            "model": "deepseek-v4-pro",
+            "input_tokens": 577,
+            "output_tokens": 79,
+            "status": "ok",
+            "duration_ms": 1641.0
+          },
+          {
+            "stage": "evidence_check",
+            "round": 1,
+            "evidence_ids": [],
+            "versions": [],
+            "sufficient": false
+          },
+          {
+            "stage": "tool_call",
+            "tool": "knowledge_search",
+            "argument_keys": [
+              "query",
+              "top_k",
+              "year"
+            ],
+            "read_only": true
+          },
+          {
+            "stage": "llm",
+            "model": "deepseek-v4-pro",
+            "input_tokens": 65,
+            "output_tokens": 79,
+            "status": "ok",
+            "duration_ms": 1344.0
+          },
+          {
+            "stage": "evidence_check",
+            "round": 2,
+            "evidence_ids": [],
+            "versions": [],
+            "sufficient": false
+          }
+        ]
+      }
+    }
+  ],
+  "passed": 2,
+  "total": 2
+}

@@ -12,6 +12,7 @@ ChromaDB 在这里的角色：
   两者是不同的 collection，互不干扰。
 """
 import hashlib
+import asyncio
 import json
 import logging
 import re
@@ -260,17 +261,19 @@ class KnowledgeBase:
         query: str,
         top_k: int = 5,
         categories: Optional[List[str]] = None,
+        year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """类别优先混合召回，并为每条查询保留至少 20% 的全库候选。"""
         top_k = max(1, int(top_k))
         categories = [value for value in (categories or []) if value]
+        year_filter = {'year': year} if year is not None else {}
         if not categories:
-            return self._hybrid_search(query, top_k, None)
+            return self._hybrid_search(query, top_k, None, **year_filter)
 
         global_quota = max(1, (top_k + 4) // 5)
-        category_pool = self._hybrid_search(query, top_k, categories)
+        category_pool = self._hybrid_search(query, top_k, categories, **year_filter)
         category_items = category_pool[:top_k - global_quota]
-        global_pool = self._hybrid_search(query, top_k * 2, None)
+        global_pool = self._hybrid_search(query, top_k * 2, None, **year_filter)
         seen = {item["id"] for item in category_items}
         global_items = []
         for item in global_pool:
@@ -315,9 +318,11 @@ class KnowledgeBase:
         query: str,
         top_k: int,
         categories: Optional[List[str]],
+        year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        vector = self._vector_search(query, top_k, categories)
-        keyword = self._keyword_search(query, top_k, categories)
+        year_filter = {'year': year} if year is not None else {}
+        vector = self._vector_search(query, top_k, categories, **year_filter)
+        keyword = self._keyword_search(query, top_k, categories, **year_filter)
         items: Dict[str, Dict[str, Any]] = {}
         scores: Dict[str, float] = {}
         for weight, ranked in ((0.6, vector), (0.4, keyword)):
@@ -404,9 +409,10 @@ class KnowledgeBase:
         query: str,
         top_k: int,
         categories: Optional[List[str]],
+        year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         kwargs: Dict[str, Any] = {"query_texts": [query], "n_results": top_k}
-        where = self._category_where(categories)
+        where = self._category_where(categories, year)
         if where:
             kwargs["where"] = where
         try:
@@ -436,9 +442,10 @@ class KnowledgeBase:
         query: str,
         top_k: int,
         categories: Optional[List[str]],
+        year: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         kwargs: Dict[str, Any] = {"include": ["documents", "metadatas"]}
-        where = self._category_where(categories)
+        where = self._category_where(categories, year)
         if where:
             kwargs["where"] = where
         try:
@@ -460,10 +467,13 @@ class KnowledgeBase:
         return sorted(ranked, key=lambda item: (-item["keyword_score"], item["id"]))[:top_k]
 
     @staticmethod
-    def _category_where(categories: Optional[List[str]]) -> Optional[Dict[str, Any]]:
-        if not categories:
-            return None
-        return {"category": categories[0]} if len(categories) == 1 else {"category": {"$in": categories}}
+    def _category_where(categories: Optional[List[str]], year=None) -> Optional[Dict[str, Any]]:
+        filters = []
+        if categories:
+            filters.append({"category": categories[0]} if len(categories) == 1 else {"category": {"$in": categories}})
+        if year is not None:
+            filters.append({'effective_year': int(year)})
+        return {'$and': filters} if len(filters) > 1 else filters[0] if filters else None
 
     @staticmethod
     def _result_item(
@@ -509,7 +519,9 @@ class KnowledgeBase:
         query = params.get("query", "")
         top_k = params.get("top_k", 5)
         categories = params.get("categories")
-        return self.search(query, top_k=top_k, categories=categories if isinstance(categories, list) else None)
+        return await asyncio.to_thread(self.search, query, top_k=top_k,
+                                       categories=categories if isinstance(categories, list) else None,
+                                       year=params.get('year'))
 
     # ── 内部方法 ──────────────────────────────────────────────────────────────
 

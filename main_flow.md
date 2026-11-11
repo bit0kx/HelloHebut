@@ -1,5 +1,7 @@
 # HelloHebut 主要流程
 
+本页记录 v1 流程基线；`v2` 的阶段进度与运行方式见 [v2 实施与验证指南](experiments/v2/README.md)。
+
 本文按执行顺序说明系统，算法与参数见 [技术实现](TECHNICAL_DESIGN.md)，运行命令见 [部署文档](DEPLOY.md)。
 
 ## 1. 服务启动

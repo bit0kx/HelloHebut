@@ -8,6 +8,7 @@ export function createInitialSettings() {
   return {
     userId: saved.userId || createAnonymousUserId(),
     conversationId: saved.conversationId || '',
+    sessionToken: saved.sessionToken || '',
     endpoint: saved.endpoint || saved.endpoints?.python || DEFAULT_API.baseUrl
   }
 }
@@ -41,15 +42,40 @@ export async function requestSearch(settings, query, topK = 5) {
 }
 
 export async function requestChat(settings, message) {
-  const raw = await requestJson(apiMeta(settings).baseUrl, '/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message,
-      user_id: settings.userId || 'anonymous',
-      conv_id: settings.conversationId || undefined
+  if (!settings.sessionToken) {
+    const session = await requestJson(apiMeta(settings).baseUrl, '/session', { method: 'POST' })
+    settings.sessionToken = session.session_token
+    settings.userId = session.user_id
+    settings.conversationId = ''
+    saveSettings(settings)
+  }
+  // Keep the ID for an explicit retry of the same message after a network error.
+  const pending = settings.pendingRequest
+  const requestId = pending?.message === message && pending?.convId === settings.conversationId
+    ? pending.id : (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  settings.pendingRequest = { id: requestId, message, convId: settings.conversationId }
+  let raw
+  try {
+    raw = await requestJson(apiMeta(settings).baseUrl, '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${settings.sessionToken}` },
+      body: JSON.stringify({
+        message,
+        user_id: settings.userId || 'anonymous',
+        conv_id: settings.conversationId || undefined,
+        client_request_id: requestId
+      })
     })
-  })
+  } catch (error) {
+    if (error.status === 401) {
+      settings.sessionToken = ''
+      settings.conversationId = ''
+      delete settings.pendingRequest
+      saveSettings(settings)
+    }
+    throw error
+  }
+  delete settings.pendingRequest
   return normalizeChatResponse(raw)
 }
 
@@ -105,7 +131,9 @@ async function requestJson(baseUrl, path, options = {}) {
   }
   if (!response.ok) {
     const detail = typeof data === 'string' ? data : JSON.stringify(data)
-    throw new Error(`${response.status} ${response.statusText}: ${detail}`)
+    const error = new Error(`${response.status} ${response.statusText}: ${detail}`)
+    error.status = response.status
+    throw error
   }
   return data
 }

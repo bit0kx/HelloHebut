@@ -58,4 +58,16 @@ async def create_message(client: Any, **kwargs: Any) -> Any:
             **options.get("extra_body", {}),
             **(kwargs.pop("extra_body") or {}),
         }
-    return await client.messages.create(**kwargs, **options)
+    from core.runtime import CURRENT_RUN
+    run = CURRENT_RUN.get()
+    if run is None:
+        return await client.messages.create(**kwargs, **options)
+    run.consume('model')
+    with run.span('llm', model=str(kwargs.get('model', ''))) as event:
+        response = await client.messages.create(**kwargs, **options)
+        usage = getattr(response, 'usage', None)
+        event['input_tokens'] = int(getattr(usage, 'input_tokens', 0) or 0)
+        event['output_tokens'] = int(getattr(usage, 'output_tokens', 0) or 0)
+        run.input_tokens += event['input_tokens']
+        run.output_tokens += event['output_tokens']
+        return response

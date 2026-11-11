@@ -27,3 +27,7 @@ config/grafana/
 config/nginx/ssl/
 
 model-cache/
+HelloHebut.zip
+experiments/v2/tmp/
+experiments/v2/traces/
+experiments/v2/reports/live/

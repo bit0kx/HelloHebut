@@ -1,8 +1,8 @@
 # HelloHebut 精进方案：可验证的招生咨询 Agent
 
-日期：2026-11-11。状态：设计方案，尚未实施；文中的预算、指标和工期均为建议值，不代表现有性能。
+日期：2026-11-11。状态：在 `v2` 分阶段实施，已交付范围与实测结果见 [v2 实施与验证指南](experiments/v2/README.md)；本文仍是完整设计目标，预算、指标和工期不代表全部已实现或已达标。
 
-依据：[项目技术现状](TECHNICAL_DESIGN.md)、[主要流程](main_flow.md)、[Agent 调研交接材料](agent_research_codex_context_2026-11.txt)，以及本地 EchoMind Python、Java 源码。调研材料已替代无法抓取正文的 ChatGPT 分享链接。方案基于 HelloHebut 提交 `d650853`，不重复现有部署说明和算法细节。
+依据：[项目技术现状](TECHNICAL_DESIGN.md)、[主要流程](main_flow.md)、[Agent 调研交接材料](agent_research_codex_context_2026-11.txt)，以及本地 EchoMind Python 源码和 Java 版中经筛选的可迁移设计。调研材料已替代无法抓取正文的 ChatGPT 分享链接。方案基于 HelloHebut 提交 `d650853`，不重复现有部署说明和算法细节。
 
 ## 1. 推荐路线与预期成果
 
@@ -22,7 +22,7 @@
 
 ## 2. 从现状出发，借鉴 EchoMind 的哪些部分
 
-下表中的“已有”来自源码核对；调研材料对 HelloHebut 的概括不能替代实现事实。
+下表中的“已有”来自源码核对；调研材料对 HelloHebut 的概括不能替代实现事实。Java 版仅保留混合检索、回答校验、上下文预算三项可借鉴方法，均在 HelloHebut 现有 Python 技术栈中实现。
 
 | 能力 | HelloHebut 当前实现与缺口 | EchoMind 可借鉴实现 | 本项目落点 |
 | --- | --- | --- | --- |
@@ -30,19 +30,19 @@
 | 多角色协作 | 关键词决定并行角色，成功回答直接拼接 | `RoutingDecision`、主辅角色、`ResponseComposer` | 结构化分工、去重合成、冲突显式处理 |
 | 会话状态 | 临时实体与历史文本补字段，缺少显式任务状态 | `core/conversation_state.py` 的字段来源与任务切换 | 招生条件分层、来源可追溯、条件变更规则 |
 | 并发与可靠性 | 用户/助手消息分开写入，摘要失败仍可能裁剪，画像任务无队列上限 | `commit_turn`、会话锁/Redis 租约、WATCH/MULTI 压缩、有限后台队列 | 整轮原子提交、压缩失败保留原文、受控异步维护 |
-| 检索 | 已有改写、混合召回、RRF 和 LLM 重排；没有证据驱动的迭代检索 | Python 工具化 RAG；Java 的语义检索与 BM25 融合思路 | 增加 Query Planner、Evidence Verifier，而非重建已有 RAG |
-| 回答校验 | 清理引用编号，尚不判断“引用是否支持结论” | Java `AnswerVerifier` | 数字/年份硬校验 + 逐项证据检查 + 最多一次修复 |
-| 上下文预算 | Skills 按字符截断，多角色共享大段背景 | Java `PromptBudget`、Python 角色上下文 | 按角色选证据、保留完整工具交互、预算可观察 |
+| 检索 | 已有改写、混合召回、RRF 和 LLM 重排；没有证据驱动的迭代检索 | Python 工具化 RAG；Java 版的语义召回与 BM25 双通道思路 | 保留现有 RRF，以 BM25 对照词法召回，并增加规划与证据核验 |
+| 回答校验 | 清理引用编号，尚不判断“引用是否支持结论” | Java 版的独立校验节点、类型化校验结果、校验异常不放行 | Python 中先做数字/年份硬校验，再核验证据；最多修复一次 |
+| 上下文预算 | Skills 按字符截断，多角色共享大段背景 | Java 版的完整请求预算、整轮裁剪、工具结果结构化限长；Python 角色上下文 | 使用适配模型的计数方式，保留当前问题和工具交互完整性 |
 | MCP | `mcp/` 只是本地目录，未实现标准协议 | Python `tooling/mcp_client.py`、`mcp_server.py` | 有跨服务复用需求时接入标准 MCP |
 | 评测 | 同业务链路评测、LLM Judge、硬断言；缺轨迹与完整实验元数据 | Judge 校准样例、工具断言、评测指纹 | 增加检索、记忆、工具轨迹、恢复与成本评测 |
 
-借鉴时保留以下边界：EchoMind 的 BGE-M3 客户端用于**意图匹配**，不能直接视为其 Python RAG 已升级；Java 的预算是 UTF-8 字节保守估算，并非精确 tokenizer；Python 评测 Job 保存在进程内，不具备重启恢复。它的工具也不能证明已接入真实退款、工单等外部写操作。
+借鉴时保留以下边界：EchoMind 的 BGE-M3 客户端用于**意图匹配**，不能直接视为其 Python RAG 已升级；Python 评测 Job 保存在进程内，不具备重启恢复。它的工具也不能证明已接入真实退款、工单等外部写操作。
 
 本地代码入口（EchoMind 位于同级工作区，以下引用适用于本地阅读；HelloHebut 远程仓库不包含这些源码）：
 
 - Python：[角色编排与 Composer](../EchoMind所有代码+详细文档+简历/EchoMind/agents/agent_orchestrator.py)、[工具定义](../EchoMind所有代码+详细文档+简历/EchoMind/agents/tools.py)、[状态合并](../EchoMind所有代码+详细文档+简历/EchoMind/core/conversation_state.py)、[并发控制](../EchoMind所有代码+详细文档+简历/EchoMind/core/concurrency.py)、[整轮提交与压缩](../EchoMind所有代码+详细文档+简历/EchoMind/memory/conversation_memory.py)。
 - 协议与评测：[MCP Client](../EchoMind所有代码+详细文档+简历/EchoMind/tooling/mcp_client.py)、[评测器](../EchoMind所有代码+详细文档+简历/EchoMind/evaluation/evaluator.py)、[进程内评测 Job](../EchoMind所有代码+详细文档+简历/EchoMind/evaluation/jobs.py)。
-- Java：[AnswerVerifier](../EchoMind所有代码+详细文档+简历/EchoMindJava/src/main/java/com/echomind/agent/AnswerVerifier.java)、[PromptBudget](../EchoMind所有代码+详细文档+简历/EchoMindJava/src/main/java/com/echomind/llm/PromptBudget.java)。迁移这些设计即可，不需要将 HelloHebut 改写为 Java。
+- 保留的 Java 方法参考：[混合检索](../EchoMind所有代码+详细文档+简历/EchoMindJava/src/main/java/com/echomind/knowledge/KnowledgeBaseService.java)、[独立回答校验](../EchoMind所有代码+详细文档+简历/EchoMindJava/src/main/java/com/echomind/agent/AnswerVerifier.java)、[请求预算与完整轮次裁剪](../EchoMind所有代码+详细文档+简历/EchoMindJava/src/main/java/com/echomind/llm/PromptBudget.java)。
 
 ## 3. 目标架构与数据职责
 
@@ -150,7 +150,7 @@ flowchart TD
 
 保留 General、Policy、Risk、Planning 四个角色，但默认单角色，复杂问题最多一个主角色和一个辅助角色。角色接收各自子问题、相关条件和证据，返回 `status/claims/evidence_ids/missing_facts/errors`；Composer 仅在多角色时运行，依据共同证据去重合并，遇到冲突回到核验节点，不能投票决定事实。
 
-上下文分配按“规则 → 当前问题与确认条件 → 必需工具结果 → 相关证据 → 相关记忆”组织。历史按完整轮次裁剪，工具调用与结果成对保留；大输出保存引用与摘要，需要时按段读取。使用模型适配的 token 计数；无法精确计数时采用保守估算并记录估算方式。此设计借鉴了上下文选择、压缩与按需加载的原则。[Anthropic 上下文工程说明](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)
+上下文分配按“规则 → 当前问题与确认条件 → 必需工具结果 → 相关证据 → 相关记忆”组织。预算覆盖消息、工具 Schema 和工具结果；历史按完整轮次裁剪，保留当前问题与成对工具交互。大输出保存引用与摘要，需要时按段读取；限长后的工具结果须保持合法 JSON，并保留来源标识和截断提示。使用模型适配的 token 计数；无法精确计数时采用保守估算并记录估算方式。此设计借鉴了上下文选择、压缩与按需加载的原则。[Anthropic 上下文工程说明](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)
 
 初始预算统一由请求级调度器控制，角色与工具不各自无限重试：
 

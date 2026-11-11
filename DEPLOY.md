@@ -1,5 +1,7 @@
 # HelloHebut Docker 部署与验证
 
+本页保留 v1 部署基线；`v2` 的独立端口、运行目录和会话令牌调用方式见 [v2 实施与验证指南](experiments/v2/README.md)。
+
 技术参数和接口定义见[技术索引](TECHNICAL_DESIGN.md)，本文只保留运行操作。
 
 ## 1. 准备环境

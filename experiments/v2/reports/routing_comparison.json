@@ -1,0 +1,98 @@
+{
+  "mode": "routing_component_counterfactual",
+  "baseline_commit": "8029b40",
+  "dataset_sha256": "e8c75e65c2f0feee3b1134cf2a27f125023968de2bfcdb517689c9d5d17ea3c0",
+  "limitations": "Scripted intent and generation, real CSV. This measures required tool routing, not live model quality.",
+  "baseline": {
+    "passed": 4,
+    "total": 8,
+    "cases": [
+      {
+        "case_id": "risk_rank",
+        "csv_called": true,
+        "passed": true
+      },
+      {
+        "case_id": "compare_rank",
+        "csv_called": false,
+        "passed": false
+      },
+      {
+        "case_id": "planning_score",
+        "csv_called": false,
+        "passed": false
+      },
+      {
+        "case_id": "history_policy",
+        "csv_called": false,
+        "passed": false
+      },
+      {
+        "case_id": "career_rank",
+        "csv_called": false,
+        "passed": false
+      },
+      {
+        "case_id": "pure_major",
+        "csv_called": false,
+        "passed": true
+      },
+      {
+        "case_id": "pure_compare",
+        "csv_called": false,
+        "passed": true
+      },
+      {
+        "case_id": "greeting",
+        "csv_called": false,
+        "passed": true
+      }
+    ]
+  },
+  "v2": {
+    "passed": 8,
+    "total": 8,
+    "cases": [
+      {
+        "case_id": "risk_rank",
+        "csv_called": true,
+        "passed": true
+      },
+      {
+        "case_id": "compare_rank",
+        "csv_called": true,
+        "passed": true
+      },
+      {
+        "case_id": "planning_score",
+        "csv_called": true,
+        "passed": true
+      },
+      {
+        "case_id": "history_policy",
+        "csv_called": true,
+        "passed": true
+      },
+      {
+        "case_id": "career_rank",
+        "csv_called": true,
+        "passed": true
+      },
+      {
+        "case_id": "pure_major",
+        "csv_called": false,
+        "passed": true
+      },
+      {
+        "case_id": "pure_compare",
+        "csv_called": false,
+        "passed": true
+      },
+      {
+        "case_id": "greeting",
+        "csv_called": false,
+        "passed": true
+      }
+    ]
+  }
+}

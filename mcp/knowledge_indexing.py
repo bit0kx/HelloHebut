@@ -2,7 +2,7 @@
 import re
 from typing import Any, Dict, List
 
-INDEX_VERSION = 3
+INDEX_VERSION = 4
 _NUMBER_ONLY = re.compile(r"^(?:\d{1,2}|PART[-－]?\d{1,2})$", re.IGNORECASE)
 _NUMBERED_MAJOR = re.compile(
     r"^(?:(?:\d{1,2}\.(?!\d)|\d{1,2}[、．]|[一二三四五六七八九十]+[.、．])\s*(.+)|\d{2}\s*(\D.+))$"
@@ -15,7 +15,9 @@ _LANGUAGE_MAJORS = {"英语", "日语", "法语", "德语", "俄语", "西班牙
 
 
 def split_text(text: str, chunk_size: int = 500) -> List[str]:
-    """按句子切片，避免在一句话中间截断。"""
+    """Prefer sentence boundaries, enforce a hard cap on long unbroken paragraphs."""
+    if chunk_size < 2:
+        raise ValueError('chunk_size must be >= 2')
     if len(text) <= chunk_size:
         return [text.strip()] if text.strip() else []
     chunks, current = [], ""
@@ -23,7 +25,17 @@ def split_text(text: str, chunk_size: int = 500) -> List[str]:
         sentence = sentence.strip()
         if not sentence:
             continue
-        if current and len(current) + len(sentence) + 1 > chunk_size:
+        if len(sentence) > chunk_size:
+            if current:
+                chunks.append(current)
+                current = ''
+            overlap = min(50, chunk_size // 10)
+            step = chunk_size - overlap
+            while len(sentence) > chunk_size:
+                chunks.append(sentence[:chunk_size])
+                sentence = sentence[step:]
+            current = sentence
+        elif current and len(current) + len(sentence) + 1 > chunk_size:
             chunks.append(current)
             current = sentence
         else:

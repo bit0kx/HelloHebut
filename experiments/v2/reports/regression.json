@@ -1,0 +1,48 @@
+{
+  "mode": "offline_regression",
+  "suite": "experiments/v2/tests",
+  "commit": "8029b407e741024f6c7ece1c520a71e38c27aeda",
+  "python": "3.11.7",
+  "source_hashes": {
+    "agents/agent_orchestrator.py": "4db9bbbff39c27e6a5526075806a9a569dc1f220dc1adcda48879df419d71cb5",
+    "api/main.py": "3b4cf580d8a2dde8ef43612ede5e2ac820798360251831ae0439c7a3707cca35",
+    "core/chat_service.py": "a248c2a32c7a9a76fc59090b413aa6812a68229fea981755456b85d4c118749c",
+    "core/contracts.py": "3f7cefda11e474749a59faa547f381f018f3e3b6fb6e690ae03c0b24adb58872",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "6729a8cdfd8b38ba7364fc983f734a737a658630e8c2f197ef460f4f4082a62a",
+    "core/runtime.py": "ad62062e6fbd12ee39480f60baca8844c91cf7d75fa9eab100f2f206cf3ec848",
+    "core/skill_loader.py": "fc909656432994fe80d8798b4a204827210bc9271c6ace0044efd56028cc86f0",
+    "core/task_state.py": "913849e27f17fe2599bf4742025fe16d1215a31920b552aecf046201e92d1603",
+    "mcp/admission_data.py": "2c87730895b553d3c47403be3f3e9a364c044afc1225f524a25650a69f722f59",
+    "mcp/knowledge_base.py": "db7616fdca6618e52ff680f7ac0f587ef116b4d994510dd0ecb32739222bdf41",
+    "mcp/knowledge_indexing.py": "cdb3aafbc820706ba2b184ff45cd1371793301f3d4148ae25edd6e519182996e",
+    "mcp/tool_manager.py": "3f9a5e124f03c93dd5c38c81a8da27cede1117b81deee99d10379d56aa870681",
+    "memory/conversation_memory.py": "975cb55cead1d5ac04d460227501a3274402db92da16fb7ac4d51e4f83d83624",
+    "memory/turn_store.py": "98960c63d16b5bf1a7c7999b29b892bdc47fa84294212c86a8a6d274f9a1a4f5",
+    "rag/agentic.py": "0528b99c8b985d4d8150a52954536bdee5ad3e6388f93480ab7d5d2253ab571b"
+  },
+  "dependencies": {
+    "anthropic": "0.40.0",
+    "redis": "5.2.1",
+    "pydantic": "2.10.3",
+    "fastapi": "0.115.5",
+    "jsonschema": "4.19.2"
+  },
+  "test_hashes": {
+    "experiments/v2/tests/redis_support.py": "7fac50b0e397654ad0f0de222a8ddb39a5ae5cf67306f4a33e5a51a723bc8e45",
+    "experiments/v2/tests/test_agentic_rag.py": "1c452364f0485fd3f786573f1845f96997bc58a1d3c312297b91da28ba52722c",
+    "experiments/v2/tests/test_chat_integration.py": "7ecf4f88f97921a672ea39d0e549fb0ffa74ec2e35e55df90d874ecf0f71fae3",
+    "experiments/v2/tests/test_contracts.py": "d8a6e89f996aeca3e133ea1c11e4f3c8a21f5238a98c6a119b090d57316c8c6a",
+    "experiments/v2/tests/test_turn_store.py": "5ceae17b80690addb007eca0df01e92b007c9d7caf072f16be0e5476fddcd43b"
+  },
+  "data_sha256": "e397f8d4d60e26c7146e0f74940942aeef9a5800916ae509e83bc825a1537105",
+  "tests": 36,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "duration_s": 6.516,
+  "failed_tests": [],
+  "skip_reasons": [],
+  "success": true,
+  "limitations": "Offline assertions are not live-model answer-quality measurements."
+}

@@ -22,8 +22,10 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
 from anthropic import AsyncAnthropic
+from jsonschema import Draft202012Validator
 
 from core.llm_client import create_message, extract_text
+from core.runtime import CURRENT_RUN, BudgetExceeded
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +119,8 @@ class Tool:
     timeout_s:   float = 30.0
     supports_rerank: bool = False            # 是否支持结果重排
     fallback:    Optional[Callable] = None    # sync/async (params, context, error) -> Any
+    read_only: bool = True
+    allowed_agents: tuple[str, ...] = ()
 
     # 运行时状态（不参与构造）
     stats:   ToolStats    = field(default_factory=ToolStats, init=False)
@@ -148,10 +152,12 @@ class MCPToolManager:
         self._rerank_min_score = max(0.0, min(10.0, rerank_min_score))
         self._tools: Dict[str, Tool] = {}
         self._cache: Dict[str, tuple] = {}   # key → (result, expire_at)
+        self._cache_generation = 0
 
     # ── 注册 / 注销 ───────────────────────────────────────────────────────────
 
     def register(self, tool: Tool) -> None:
+        Draft202012Validator.check_schema(tool.schema)
         self._tools[tool.name] = tool
         logger.info(f"注册工具: {tool.name}")
 
@@ -171,11 +177,24 @@ class MCPToolManager:
     ) -> ToolResult:
         """
         调用工具，完整执行链：
-          缓存检查 → 熔断检查 → 参数校验 → 执行（含超时）→ 缓存写入 → 可选重排
+          Schema/角色校验 → 预算 → 缓存检查 → 熔断检查 → 执行（含超时）→ 缓存写入 → 可选重排
         """
         tool = self._tools.get(name)
         if not tool:
             return ToolResult(success=False, data=None, tool_name=name, error=f"工具不存在: {name}")
+
+        # Validate before cache/fallback: invalid or unauthorized calls must never execute.
+        try:
+            self._validate_params(tool, params)
+        except ValueError:
+            return ToolResult(False, None, name, error='invalid_tool_arguments')
+        if tool.allowed_agents and (context or {}).get('agent_type') not in tool.allowed_agents:
+            return ToolResult(False, None, name, error='tool_not_allowed')
+        run = CURRENT_RUN.get()
+        if run:
+            run.consume('tool')
+            run.events.append({'stage': 'tool_call', 'tool': name,
+                               'argument_keys': sorted(params), 'read_only': tool.read_only})
 
         # 缓存命中
         if use_cache and tool.cache_ttl > 0:
@@ -191,11 +210,9 @@ class MCPToolManager:
             return await self._fallback_result(tool, params, context, error)
 
         t0 = time.monotonic()
+        cache_generation = self._cache_generation
         tool.stats.total += 1
         try:
-            # 参数校验（根据 JSON Schema 的 required 和 properties.type）
-            self._validate_params(tool, params)
-
             data = await asyncio.wait_for(tool.handler(params, context), timeout=tool.timeout_s)
             latency = (time.monotonic() - t0) * 1000
 
@@ -205,7 +222,7 @@ class MCPToolManager:
             tool.breaker.record_success()
 
             # 写缓存
-            if tool.cache_ttl > 0:
+            if tool.cache_ttl > 0 and cache_generation == self._cache_generation:
                 self._set_cache(name, params, data, tool.cache_ttl)
 
             # 重排（针对返回列表的检索工具）
@@ -217,6 +234,8 @@ class MCPToolManager:
             return ToolResult(success=True, data=data, tool_name=name,
                               latency_ms=latency, reranked=reranked)
 
+        except BudgetExceeded:
+            raise
         except asyncio.TimeoutError:
             tool.stats.failed += 1
             tool.stats.consecutive_fails += 1
@@ -256,6 +275,24 @@ class MCPToolManager:
             return ToolResult(success=False, data=None, tool_name=tool.name, error=f"{error}; fallback失败: {ex}")
 
     # ── 查询改写（解决召回不全）────────────────────────────────────────────────
+
+    async def search_once(self, tool_name, query, top_k=8, categories=None, year=None):
+        """One planned query, no nested query expansion. AgenticRAG owns the loop."""
+        params = {'query': query, 'top_k': max(20, top_k * 3)}
+        if categories:
+            params['categories'] = categories
+        if year is not None:
+            params['year'] = year
+        result = await self.call(tool_name, params)
+        if result.success and isinstance(result.data, list):
+            items = [item for item in result.data if isinstance(item, dict) and not item.get('fallback')]
+            result.data = await self._rerank(query, items, top_k) if items else []
+            result.reranked = True
+        return result
+
+    def invalidate_cache(self):
+        self._cache_generation += 1
+        self._cache.clear()
 
     async def rewrite_query(self, query: str, n: int = 3, scope: str = "") -> List[str]:
         """
@@ -457,22 +494,8 @@ class MCPToolManager:
 
     def _validate_params(self, tool: Tool, params: Dict[str, Any]) -> None:
         """根据工具的 JSON Schema 校验参数，不合法时抛出 ValueError。"""
-        schema = tool.schema
-        required = schema.get("required", [])
-        properties = schema.get("properties", {})
-
-        for field in required:
-            if field not in params:
-                raise ValueError(f"工具 {tool.name} 缺少必需参数: {field}")
-
-        for key, value in params.items():
-            if key in properties:
-                expected_type = properties[key].get("type")
-                if expected_type and expected_type in self._TYPE_MAP:
-                    if not isinstance(value, self._TYPE_MAP[expected_type]):
-                        raise ValueError(
-                            f"工具 {tool.name} 参数 {key} 类型错误: 期望 {expected_type}，实际 {type(value).__name__}"
-                        )
+        if not Draft202012Validator(tool.schema).is_valid(params):
+            raise ValueError('invalid_tool_arguments')
 
     @staticmethod
     def _clean_text(value: Any) -> str:

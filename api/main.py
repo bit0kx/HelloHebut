@@ -10,6 +10,7 @@ import os
 import pathlib
 import sys
 import uuid
+from dataclasses import asdict
 from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -53,6 +54,7 @@ _evaluator    = None
 _skill_manager = None
 _chat_service = None
 _admission_store = None
+_tool_managers = []
 
 
 def _anthropic_cfg() -> Dict[str, Any]:
@@ -85,6 +87,8 @@ async def lifespan(app: FastAPI):
     from memory.conversation_memory import MemoryManager
     from monitor.performance_monitor import PerformanceMonitor
     from core.skill_loader import SkillManager
+    from core.contracts import AdmissionQuery
+    from rag.agentic import AgenticRAG
 
     cfg = _anthropic_cfg()
     logger.info(f"模型: {cfg['model']}  base_url: {cfg.get('base_url', '(官方)')}")
@@ -128,7 +132,7 @@ async def lifespan(app: FastAPI):
         chroma_host=os.getenv("CHROMA_HOST", "chromadb"),
         chroma_port=int(os.getenv("CHROMA_PORT", "8000")),
         chroma_path=os.getenv("CHROMA_PERSIST_DIRECTORY", "/app/data/chroma"),
-        collection_name=os.getenv("KNOWLEDGE_COLLECTION", "hello_hebut"),
+        collection_name=os.getenv("V2_KNOWLEDGE_COLLECTION", "hello_hebut_v2"),
         seed_dir=os.getenv(
             "KNOWLEDGE_SEED_DIR",
             str(pathlib.Path(_ROOT) / "data" / "demo_docs"),
@@ -177,11 +181,13 @@ async def lifespan(app: FastAPI):
             schema={
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string"},
-                    "top_k": {"type": "integer"},
+                    "query": {"type": "string", "minLength": 1, "maxLength": 8000},
+                    "top_k": {"type": "integer", "minimum": 1, "maximum": 100},
                     "categories": {"type": "array", "items": {"type": "string"}},
+                    "year": {"type": "integer", "minimum": 2000, "maximum": 2100},
                 },
                 "required": ["query"],
+                "additionalProperties": False,
             },
             cache_ttl=300.0,
             supports_rerank=True,
@@ -191,15 +197,7 @@ async def lifespan(app: FastAPI):
             name="admission_data_query",
             description="确定性查询河北工业大学河北、天津2023—2025年分专业最低分和最低位次，并生成可解释风险等级",
             handler=_admission_store.query_handler,
-            schema={
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string"},
-                    "entities": {"type": "object"},
-                    "history": {"type": "array"},
-                },
-                "required": ["query"],
-            },
+            schema=AdmissionQuery.model_json_schema(),
             cache_ttl=600.0,
             fallback=admission_fallback,
         ))
@@ -207,7 +205,14 @@ async def lifespan(app: FastAPI):
 
     _tool_manager = build_tool_manager()
 
-    _chat_service = ChatService(_orchestrator, _memory, _tool_manager, recognizer=recognizer)
+    agentic_enabled = os.getenv('HELLOHEBUT_AGENTIC_RAG', 'true').lower() == 'true'
+    _chat_service = ChatService(
+        _orchestrator, _memory, _tool_manager, recognizer=recognizer,
+        agentic_rag=AgenticRAG(_tool_manager) if agentic_enabled else None,
+        trace_dir=os.getenv('V2_TRACE_DIR', str(pathlib.Path(_ROOT) / 'experiments/v2/traces/chat')),
+        timeout_s=float(os.getenv('V2_CHAT_TIMEOUT_S', '50')),
+    )
+    _memory.maintenance.start()
 
     # 性能监控（可选启动 Prometheus）
     prom_port = int(os.getenv("PROMETHEUS_PORT", "0")) or None
@@ -229,20 +234,26 @@ async def lifespan(app: FastAPI):
         skill_manager=_skill_manager,
     )
     eval_tool_manager = build_tool_manager()
-    eval_chat_service = ChatService(eval_orchestrator, _memory, eval_tool_manager, recognizer=recognizer)
+    _tool_managers[:] = [_tool_manager, eval_tool_manager]
+    eval_chat_service = ChatService(
+        eval_orchestrator, _memory, eval_tool_manager, recognizer=recognizer,
+        agentic_rag=AgenticRAG(eval_tool_manager) if agentic_enabled else None,
+        trace_dir=str(pathlib.Path(_ROOT) / 'experiments/v2/traces/evaluation'),
+    )
     _evaluator = EndToEndEvaluator(
         chat_service=eval_chat_service,
         recognizer=recognizer,
         api_key=cfg["api_key"],
         base_url=cfg.get("base_url"),
         model=os.getenv("EVAL_JUDGE_MODEL", cfg["model"]),
-        baseline_path=os.getenv("EVAL_BASELINE_PATH", "/app/data/eval/baseline.json"),
+        baseline_path=os.getenv("V2_EVAL_BASELINE_PATH", str(pathlib.Path(_ROOT) / 'experiments/v2/reports/live/baseline.json')),
     )
 
     logger.info("河北工业大学本科报考咨询服务已就绪")
     yield
 
     await _monitor.stop()
+    await _memory.close()
     logger.info("河北工业大学本科报考咨询服务已关闭")
 
 
@@ -272,9 +283,10 @@ app.add_middleware(
 
 # ── 请求/响应模型 ─────────────────────────────────────────────────────────────
 class ChatRequest(BaseModel):
-    message:     str
+    message:     str = Field(min_length=1, max_length=8000)
     user_id:     Optional[str] = None
     conv_id:     Optional[str] = None
+    client_request_id: Optional[str] = Field(default=None, min_length=1, max_length=128)
 
 
 class ChatResponse(BaseModel):
@@ -288,6 +300,11 @@ class ChatResponse(BaseModel):
     admission_data_used: bool = False
     citations:   List[Dict[str, Any]] = Field(default_factory=list)
     entities:    Dict[str, List[str]] = Field(default_factory=dict)
+    request_id: str = ''
+    trace_id: str = ''
+    status: str = 'completed'
+    verified: Optional[bool] = None
+    stop_reason: str = ''
 
 
 def require_admin(x_admin_token: Optional[str] = Header(default=None)) -> None:
@@ -324,30 +341,41 @@ async def reload_skills(_: None = Depends(require_admin)):
     return _skill_manager.summary()
 
 
+@app.post('/session', tags=['会话'])
+async def create_session():
+    """Create an anonymous bearer identity. User-supplied IDs are never authorization."""
+    if _memory is None:
+        raise HTTPException(503, '服务未就绪')
+    return await _memory.turns.create_session()
+
+
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, authorization: Optional[str] = Header(default=None)):
     """
     主对话接口。完整流程：
       记忆读取 → 意图识别 → 结构化录取数据/官方知识检索 → Agent 路由 → 执行 → 记忆写入
     """
     if _chat_service is None:
         raise HTTPException(503, "服务未就绪")
-    conv_id = req.conv_id or str(uuid.uuid4())
-    user_id = req.user_id or f"anon_{conv_id}"
-    result = await _chat_service.handle(req.message, user_id, conv_id)
-
-    return ChatResponse(
-        conv_id=result.conv_id,
-        response=result.response,
-        intent=result.intent,
-        agent_type=result.agent_type,
-        escalated=result.escalated,
-        latency_ms=result.latency_ms,
-        knowledge_used=result.knowledge_used,
-        admission_data_used=result.admission_data_used,
-        citations=result.citations,
-        entities=result.entities,
-    )
+    from core.runtime import RequestConflict, ConversationBusy, LeaseLost, BudgetExceeded
+    token = authorization[7:] if authorization and authorization.startswith('Bearer ') else ''
+    user_id = await _memory.turns.session_user(token) if _memory else None
+    if not user_id:
+        raise HTTPException(401, '请先调用 POST /session 获取会话令牌')
+    if req.user_id and req.user_id != user_id:
+        raise HTTPException(403, 'user_id 与会话令牌不匹配')
+    try:
+        result = await _chat_service.handle(req.message, user_id, req.conv_id,
+                                            client_request_id=req.client_request_id)
+    except RequestConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ConversationBusy as exc:
+        raise HTTPException(409, str(exc), headers={'Retry-After': '3'}) from exc
+    except (asyncio.TimeoutError, BudgetExceeded) as exc:
+        raise HTTPException(504, '本轮超时或预算耗尽，请使用相同 client_request_id 重试') from exc
+    except LeaseLost as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return ChatResponse(**asdict(result))
 
 
 @app.get("/monitor")
@@ -478,7 +506,9 @@ async def add_knowledge(body: BatchDocInput, _: None = Depends(require_admin)):
     kb = tool.handler.__self__
     for document in body.documents:
         validate_official_source(document.source_url)
-    count = kb.add_documents([d.model_dump(exclude_none=True) for d in body.documents])
+    count = await asyncio.to_thread(kb.add_documents, [d.model_dump(exclude_none=True) for d in body.documents])
+    for manager in _tool_managers:
+        manager.invalidate_cache()
     return {"message": f"成功导入 {count} 个文档片段", "added_chunks": count, "total_chunks": kb.doc_count}
 
 
@@ -530,7 +560,9 @@ async def upload_knowledge(
         title = filename.rsplit(".", 1)[0] if "." in filename else filename
         docs = [{"title": title, "content": text, "source_url": source_url, "category": category}]
 
-    count = kb.add_documents(docs)
+    count = await asyncio.to_thread(kb.add_documents, docs)
+    for manager in _tool_managers:
+        manager.invalidate_cache()
     return {
         "message": f"文件 {filename} 导入成功",
         "added_chunks": count,

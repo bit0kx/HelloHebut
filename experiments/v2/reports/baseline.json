@@ -1,0 +1,29 @@
+{
+  "mode": "offline_regression",
+  "suite": "tests",
+  "commit": "8029b407e741024f6c7ece1c520a71e38c27aeda",
+  "python": "3.11.7",
+  "source_hashes": {
+    "agents/agent_orchestrator.py": "4db9bbbff39c27e6a5526075806a9a569dc1f220dc1adcda48879df419d71cb5",
+    "api/main.py": "19cd4074f0e1ecda634f00891b861347bf30bf00360b230a36e3d53b2f2ba84f",
+    "core/chat_service.py": "eb99eb5522dac4a134232ca2ebcd8a914412611b5dc40d1272c6ea3ebf1b4b0c",
+    "core/intent_recognizer.py": "682f0e6e00be5750d8dc42fbd3c49f92328dc49f58e8837e7e88e4ad79199639",
+    "core/llm_client.py": "109fecbfd2144875399271a84122381f9d32d127f32d61212cc31ac0aca8c547",
+    "core/skill_loader.py": "fc909656432994fe80d8798b4a204827210bc9271c6ace0044efd56028cc86f0",
+    "mcp/admission_data.py": "2c87730895b553d3c47403be3f3e9a364c044afc1225f524a25650a69f722f59",
+    "mcp/knowledge_base.py": "d5ab9a5217aaebf8d109139e05db8b14c3259557c5bd30ae058833bdb63e52e6",
+    "mcp/knowledge_indexing.py": "ad4ccac9ff3c7e79349e4022dfaf0e99b844d05adcd7d537fe08684db559a67c",
+    "mcp/tool_manager.py": "d9bae83436fa83356ad5c6cfc7e1be64a5edb6519fc1e8cbda7d21ce43271e44",
+    "memory/conversation_memory.py": "e79c376dfdecf80d690c105cf66a76e6e2b6f02b21af92235704f3ed8f66682b"
+  },
+  "data_sha256": "e397f8d4d60e26c7146e0f74940942aeef9a5800916ae509e83bc825a1537105",
+  "tests": 45,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "duration_s": 10.562,
+  "failed_tests": [],
+  "skip_reasons": [],
+  "success": true,
+  "limitations": "Offline assertions are not live-model answer-quality measurements."
+}

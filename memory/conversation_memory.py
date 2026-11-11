@@ -9,7 +9,7 @@
 关键设计：
   - 上下文构建时三级记忆融合，按重要性 + 时效性排序
   - 工作记忆超过阈值时自动压缩（LLM 摘要），防止 context 爆炸
-  - 所有 Embedding 通过 Anthropic API 生成，无本地模型
+  - ChromaDB 内置 Embedding；v2 会话与画像使用独立命名空间
 """
 import asyncio
 import hashlib
@@ -21,11 +21,11 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-import chromadb
 import redis
 from anthropic import AsyncAnthropic
 
 from core.llm_client import create_message, extract_text
+from memory.turn_store import TurnStore, MaintenanceQueue
 
 logger = logging.getLogger(__name__)
 
@@ -94,13 +94,16 @@ class MemoryManager:
         base_url:     Optional[str] = None,
         model:        str = "claude-3-5-sonnet-20241022",
     ):
+        import chromadb
         kwargs: Dict[str, Any] = {"api_key": api_key}
         if base_url:
             kwargs["base_url"] = base_url
         self._client = AsyncAnthropic(**kwargs)
         self._model  = model
 
-        self._redis = redis.from_url(redis_url, decode_responses=True)
+        self._redis = redis.from_url(redis_url, decode_responses=True, socket_timeout=5, socket_connect_timeout=5)
+        self.turns = TurnStore(redis_url)
+        self.maintenance = MaintenanceQueue(self.maintain)
 
         # ChromaDB：优先连接独立服务（docker compose 模式），连不上则降级为本地嵌入式
         try:
@@ -120,12 +123,21 @@ class MemoryManager:
             )
 
         # 情景记忆：存储历史对话片段
-        self._episodic = chroma.get_or_create_collection("episodic")
+        self._episodic = chroma.get_or_create_collection("episodic_v2")
         # 用户画像：每个用户维护一份聚合后的偏好和实体
-        self._profile  = chroma.get_or_create_collection("user_profile")
+        self._profile  = chroma.get_or_create_collection("user_profile_v2")
         self._profile_locks: Dict[str, asyncio.Lock] = {}
 
     # ── 写入 ──────────────────────────────────────────────────────────────────
+
+    async def maintain(self, user_id: str, conv_id: str) -> None:
+        await self._compress(user_id, conv_id)
+        await self.update_profile(user_id, conv_id)
+
+    async def close(self):
+        await self.maintenance.close()
+        await self.turns.close()
+        self._redis.close()
 
     async def add_message(
         self,
@@ -146,16 +158,16 @@ class MemoryManager:
         key = self._wm_key(user_id, conv_id)
 
         # 追加到 Redis 列表（左推，最新在前）
-        self._redis.lpush(key, json.dumps({
+        await asyncio.to_thread(self._redis.lpush, key, json.dumps({
             "role":      msg.role.value,
             "content":   msg.content,
             "ts":        msg.timestamp.isoformat(),
             "metadata":  msg.metadata,
         }))
-        self._redis.expire(key, 86400)  # 24h TTL
+        await asyncio.to_thread(self._redis.expire, key, 86400)
 
         # 超过压缩阈值时触发压缩
-        if self._redis.llen(key) >= self.COMPRESS_AT:
+        if await asyncio.to_thread(self._redis.llen, key) >= self.COMPRESS_AT:
             await self._compress(user_id, conv_id)
 
     async def update_profile(self, user_id: str, conv_id: str) -> None:
@@ -200,13 +212,13 @@ class MemoryManager:
                 doc_text = self._safe_text(json.dumps(merged_profile, ensure_ascii=False))
 
                 # 固定文档 ID + upsert：每个用户始终只有一份可直接更新的聚合画像。
-                self._profile.upsert(
+                await asyncio.to_thread(self._profile.upsert,
                     ids=[doc_id],
                     documents=[doc_text],
                     metadatas=[{"user_id": user_id, "conv_id": conv_id,
                                 "ts": datetime.now().isoformat(), "schema_version": 2}],
                 )
-                self._delete_legacy_profiles(user_id, doc_id)
+                await asyncio.to_thread(self._delete_legacy_profiles, user_id, doc_id)
             logger.info(f"用户画像已更新: {user_id}")
         except Exception as ex:
             logger.warning(f"更新用户画像失败: {ex}")
@@ -233,7 +245,7 @@ class MemoryManager:
         profile = await self._get_profile(user_id)
 
         # 4. 会话摘要（如果已压缩过）
-        summary = self._redis.get(self._summary_key(user_id, conv_id)) or ""
+        summary = await asyncio.to_thread(self._redis.get, self._summary_key(user_id, conv_id)) or ""
 
         return MemoryContext(
             recent_messages=recent,
@@ -246,10 +258,7 @@ class MemoryManager:
         """清理指定会话的短期记忆，主要用于隔离评测会话。"""
         user_id = self._safe_text(user_id)
         conv_id = self._safe_text(conv_id)
-        self._redis.delete(
-            self._wm_key(user_id, conv_id),
-            self._summary_key(user_id, conv_id),
-        )
+        await self.turns.clear(user_id, conv_id)
 
     # ── 压缩（防止 context 爆炸）─────────────────────────────────────────────
 
@@ -259,18 +268,31 @@ class MemoryManager:
           1. 用 LLM 对旧消息生成摘要
           2. 摘要存 Redis（覆盖旧摘要）
           3. 旧消息存入情景记忆（ChromaDB）供跨会话检索
-          4. 工作记忆只保留最近 5 条
+          4. 工作记忆保留最近 3 个完整轮次及摘要生成期间新到达的消息
         """
-        messages = await self._get_working_memory(user_id, conv_id)
+        key, skey = self._wm_key(user_id, conv_id), self._summary_key(user_id, conv_id)
+        # Keep exact raw snapshot for compare-and-swap. No trimming after a failed summary.
+        raws = await asyncio.to_thread(self._redis.lrange, key, 0, -1)
+        old_summary = await asyncio.to_thread(self._redis.get, skey) or ""
+        messages = []
+        for raw in reversed(raws):
+            value = json.loads(raw)
+            messages.append(Message(MsgRole(value['role']), value['content'],
+                                    datetime.fromisoformat(value['ts']), value.get('metadata', {})))
         if len(messages) < self.COMPRESS_AT:
             return
 
-        to_compress = messages[:-5]   # 保留最近 5 条
-        keep        = messages[-5:]
+        # Retain complete recent turns, including a legacy unmatched user message.
+        cut = max(0, len(messages) - 6)
+        while cut > 0 and messages[cut].role != MsgRole.USER:
+            cut -= 1
+        if not cut:
+            return
+        to_compress = messages[:cut]
 
         # LLM 摘要
         text = self._safe_text("\n".join(f"{m.role.value}: {m.content}" for m in to_compress))
-        prompt = self._safe_text(f"用 2-3 句话总结以下对话的关键信息：\n{text}")
+        prompt = self._safe_text(f"合并既有摘要与以下对话，保留条件、更正、未解决问题及证据编号。\n既有摘要：{old_summary}\n对话：{text}")
         try:
             resp = await create_message(
                 self._client,
@@ -279,33 +301,37 @@ class MemoryManager:
             )
             summary = self._safe_text(extract_text(resp)).strip()
         except Exception:
-            summary = f"对话包含 {len(to_compress)} 条消息（摘要生成失败）"
+            return
+        if not summary:
+            return
 
-        # 存摘要到 Redis
-        skey = self._summary_key(user_id, conv_id)
-        old_summary = self._redis.get(skey) or ""
-        new_summary = self._safe_text(f"{old_summary}\n{summary}").strip()
-        self._redis.setex(skey, 86400, new_summary)
-
-        # 旧消息存入情景记忆
+        def commit_snapshot():
+            with self._redis.pipeline() as pipe:
+                try:
+                    pipe.watch(key, skey)
+                    latest = pipe.lrange(key, 0, -1)
+                    # LPUSH-only arrivals may precede this snapshot. A clear/compression aborts it.
+                    if len(latest) < len(raws) or latest[-len(raws):] != raws or (pipe.get(skey) or '') != old_summary:
+                        return False
+                    keep_count = len(latest) - cut
+                    pipe.multi()
+                    pipe.setex(skey, 86400, summary)
+                    pipe.ltrim(key, 0, keep_count - 1)
+                    pipe.expire(key, 86400)
+                    pipe.execute()
+                    return True
+                except redis.WatchError:
+                    return False
+        if not await asyncio.to_thread(commit_snapshot):
+            return
         await self._store_episodic(user_id, conv_id, text, summary)
-
-        # 重置工作记忆为最近 5 条
-        key = self._wm_key(user_id, conv_id)
-        self._redis.delete(key)
-        for m in reversed(keep):
-            self._redis.lpush(key, json.dumps({
-                "role": m.role.value, "content": m.content,
-                "ts": m.timestamp.isoformat(), "metadata": m.metadata,
-            }))
-        self._redis.expire(key, 86400)
         logger.info(f"工作记忆压缩完成: {user_id}/{conv_id}，摘要 {len(summary)} 字")
 
     # ── 内部辅助 ──────────────────────────────────────────────────────────────
 
     async def _get_working_memory(self, user_id: str, conv_id: str) -> List[Message]:
         key  = self._wm_key(user_id, conv_id)
-        raws = self._redis.lrange(key, 0, self.WORKING_MAX - 1)
+        raws = await asyncio.to_thread(self._redis.lrange, key, 0, self.WORKING_MAX - 1)
         msgs = []
         for raw in reversed(raws):  # Redis lpush 最新在前，reversed 还原时序
             d = json.loads(raw)
@@ -324,7 +350,7 @@ class MemoryManager:
             return []
         try:
             # 直接传 query_texts，ChromaDB 内置模型自动生成向量做匹配
-            results = self._episodic.query(
+            results = await asyncio.to_thread(self._episodic.query,
                 query_texts=[query_text],
                 n_results=self.HISTORY_TOP_K,
                 where={"user_id": self._safe_text(user_id)},
@@ -344,7 +370,7 @@ class MemoryManager:
             summary = self._safe_text(summary)
             doc_id = hashlib.md5(f"{user_id}{conv_id}{time.time()}".encode()).hexdigest()
             # 直接传 documents，ChromaDB 内置模型自动生成 embedding
-            self._episodic.add(
+            await asyncio.to_thread(self._episodic.add,
                 ids=[doc_id],
                 documents=[summary],
                 metadatas=[{"user_id": user_id, "conv_id": conv_id,
@@ -356,7 +382,7 @@ class MemoryManager:
     async def _get_profile(self, user_id: str) -> Dict[str, Any]:
         """获取聚合画像；兼容并合并旧版按会话存储的多条画像。"""
         try:
-            results = self._profile.get(where={"user_id": self._safe_text(user_id)})
+            results = await asyncio.to_thread(self._profile.get, where={"user_id": self._safe_text(user_id)})
             records = []
             ids = results.get("ids") or []
             documents = results.get("documents") or []
@@ -447,11 +473,11 @@ class MemoryManager:
 
     @staticmethod
     def _wm_key(user_id: str, conv_id: str) -> str:
-        return f"wm:{user_id}:{conv_id}"
+        return TurnStore.key('wm', user_id, conv_id)
 
     @staticmethod
     def _summary_key(user_id: str, conv_id: str) -> str:
-        return f"summary:{user_id}:{conv_id}"
+        return TurnStore.key('summary', user_id, conv_id)
 
     @staticmethod
     def _safe_text(value: Any) -> str:

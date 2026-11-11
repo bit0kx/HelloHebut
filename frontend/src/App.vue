@@ -21,7 +21,7 @@
         </label>
         <label>
           <span>用户 ID</span>
-          <input v-model="settings.userId" @change="persist" placeholder="u1001" />
+          <input :value="settings.userId" readonly placeholder="服务端分配" />
         </label>
         <label>
           <span>会话 ID</span>

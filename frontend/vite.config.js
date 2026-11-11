@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api/python': {
-        target: process.env.VITE_PYTHON_API_URL || 'http://localhost:8000',
+        target: process.env.VITE_PYTHON_API_URL || 'http://localhost:18000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/python/, '')
       }

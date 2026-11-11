@@ -1,16 +1,16 @@
 # 河北工业大学本科报考咨询 — Docker Compose 服务编排
 # 三级记忆架构：Redis（工作记忆）+ ChromaDB（情景记忆 + 用户画像）
 
-name: hellohebut
+name: hellohebut-v2
 
 services:
 
   # ── Redis 缓存（工作记忆）────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: hellohebut-redis
+    container_name: hellohebut-v2-redis
     ports:
-      - "6379:6379"
+      - "${V2_REDIS_PORT:-16379}:6379"
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-hellohebut123}
     volumes:
       - redis-data:/data
@@ -26,9 +26,9 @@ services:
   # ── ChromaDB 向量数据库（情景记忆 + 用户画像）────────────────────────────────
   chromadb:
     image: chromadb/chroma:0.5.23
-    container_name: hellohebut-chromadb
+    container_name: hellohebut-v2-chromadb
     ports:
-      - "8001:8000"
+      - "${V2_CHROMA_PORT:-18001}:8000"
     environment:
       - IS_PERSISTENT=TRUE
       - PERSIST_DIRECTORY=/chroma/chroma
@@ -48,9 +48,9 @@ services:
   # ── Prometheus 监控 ─────────────────────────────────────────────────────────
   prometheus:
     image: prom/prometheus:latest
-    container_name: hellohebut-prometheus
+    container_name: hellohebut-v2-prometheus
     ports:
-      - "9090:9090"
+      - "${V2_PROMETHEUS_PORT:-19090}:9090"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -75,27 +75,31 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
-    container_name: hellohebut-app
+    container_name: hellohebut-v2-app
     ports:
-      - "8000:8000"
+      - "${V2_API_PORT:-18000}:8000"
     env_file:
       - .env
     environment:
       # 容器内固定值，覆盖 .env 中的本地路径
       - REDIS_URL=redis://:${REDIS_PASSWORD:-hellohebut123}@redis:6379/0
       - CHROMA_PERSIST_DIRECTORY=/app/data/chroma
-      - EVAL_BASELINE_PATH=/app/data/eval/baseline.json
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - V2_EVAL_BASELINE_PATH=/app/experiments/v2/reports/live/baseline.json
+      - V2_TRACE_DIR=/app/experiments/v2/traces/chat
       - HELLOHEBUT_SKILLS_DIR=/app/skills
-      - KNOWLEDGE_COLLECTION=${KNOWLEDGE_COLLECTION:-hello_hebut}
+      - V2_KNOWLEDGE_COLLECTION=${V2_KNOWLEDGE_COLLECTION:-hello_hebut_v2}
       - KNOWLEDGE_SEED_DIR=/app/data/demo_docs
       - ADMISSION_DATA_PATH=/app/data/hebut_admission.csv
     volumes:
-      - ./data/chroma:/app/data/chroma
+      - ./experiments/v2/tmp/chroma:/app/data/chroma
       - ./data/demo_docs:/app/data/demo_docs:ro
       - ./data/hebut_admission.csv:/app/data/hebut_admission.csv:ro
-      - ./data/eval:/app/data/eval
+      - ./experiments/v2/reports/live:/app/experiments/v2/reports/live
+      - ./experiments/v2/traces:/app/experiments/v2/traces
       - ./skills:/app/skills
-      - ./logs:/app/logs
+      - ./experiments/v2/tmp/logs:/app/logs
     depends_on:
       redis:
         condition: service_healthy
@@ -117,9 +121,9 @@ services:
       context: .
       dockerfile: Dockerfile
       target: frontend
-    container_name: hellohebut-frontend
+    container_name: hellohebut-v2-frontend
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${V2_FRONTEND_PORT:-8088}:80"
     volumes:
       - nginx-logs:/var/log/nginx
     depends_on:
@@ -140,9 +144,6 @@ services:
 networks:
   hellohebut-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
 
 # ── 数据卷 ──────────────────────────────────────────────────────────────────
 volumes:

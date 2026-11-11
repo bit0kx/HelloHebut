@@ -1,0 +1,10 @@
+[
+  {"id":"risk_rank","question":"河北物理类位次12000，计算机风险如何？","intent":"score_risk","require_csv":true},
+  {"id":"compare_rank","question":"河北物理类位次12000，计算机和电气怎么选？","intent":"comparison","require_csv":true},
+  {"id":"planning_score","question":"河北物理类620分，电气专业值得选吗？","intent":"major_info","require_csv":true},
+  {"id":"history_policy","question":"计算机专业的最低位次和选科要求是什么？","intent":"admission_policy","require_csv":true},
+  {"id":"career_rank","question":"河北物理类位次12000，计算机能报吗，就业方向有哪些？","intent":"career","require_csv":true},
+  {"id":"pure_major","question":"计算机专业主要学什么？","intent":"major_info","require_csv":false},
+  {"id":"pure_compare","question":"计算机和电气的课程有什么区别？","intent":"comparison","require_csv":false},
+  {"id":"greeting","question":"你好","intent":"greeting","require_csv":false}
+]

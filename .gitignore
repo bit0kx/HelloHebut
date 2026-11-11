@@ -45,3 +45,11 @@ tests/
 
 # Local project archive
 /HelloHebut.zip
+
+# v2 runtime artifacts; curated datasets and reports are versioned
+/experiments/v2/traces/
+/experiments/v2/tmp/
+/experiments/v2/reports/*.log
+/experiments/v2/reports/live/
+!experiments/v2/tests/
+!experiments/v2/tests/*.py

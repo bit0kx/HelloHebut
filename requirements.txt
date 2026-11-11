@@ -21,3 +21,4 @@ httpx==0.28.1              # monitor/performance_monitor.py webhook 告警
 
 # ── 工具 ──────────────────────────────────────────────────────────────────────
 python-dotenv==1.0.1
+jsonschema==4.19.2         # 完整工具参数 JSON Schema 校验
