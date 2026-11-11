@@ -6,20 +6,21 @@
 
 ## 本轮范围与状态
 
-已实现基础契约、关键可靠性、Agentic RAG，并推进到第 3 阶段的 PostgreSQL 可验证偏好。完整工作流持久化仍待下一阶段；阶段编号对应设计顺序，报告中的 stage4 表示第四批交付，不是第 4 周已完成。
+已实现基础契约、关键可靠性、Agentic RAG 与可验证偏好。本批按用户要求将关系数据库改为 MySQL，并推进第 4 阶段的整轮账本与已生成答案恢复提交；统一功能测试已通过。报告中的 stage5 表示第五批交付，不代表第 5 周已完成；LangGraph 节点级恢复仍待实现。
 
 | 步骤 | 已实现 | 主要代码 |
 | --- | --- | --- |
 | A：基础契约与基线 | TaskState、字段来源与条件失效、工具完整 Schema 校验、请求预算、脱敏元数据 Trace、必需 CSV 调用 | [contracts](../../core/contracts.py)、[task_state](../../core/task_state.py)、[runtime](../../core/runtime.py)、[ChatService](../../core/chat_service.py) |
-| B：关键可靠性 | 匿名会话令牌、请求回执、同 ID 内容冲突、会话租约、整轮原子提交、摘要失败保留原文、并发压缩保护、有界维护队列 | [turn_store](../../memory/turn_store.py)、[conversation_memory](../../memory/conversation_memory.py)、[API](../../api/main.py) |
+| B：关键可靠性 | 匿名会话令牌、请求回执、同 ID 内容冲突、整轮原子提交、摘要失败保留原文、并发压缩保护、有界维护队列 | [turn_store](../../memory/turn_store.py)、[conversation_memory](../../memory/conversation_memory.py)、[API](../../api/main.py) |
 | C：Agentic RAG 与知识版本 | 按年份/子问题规划、证据核验与有限补查、确定性 CSV 短路径、回答核验/回退、原文展示、活动版本切换/回退、年份去扰与等权融合、可选 BM25 | [admission_answer](../../core/admission_answer.py)、[agentic](../../rag/agentic.py)、[knowledge_base](../../mcp/knowledge_base.py)、[lexical_retrieval](../../mcp/lexical_retrieval.py)、[knowledge_catalog](../../mcp/knowledge_catalog.py) |
-| D：可验证长期偏好 | PG 事实版本、原话来源、候选确认、乐观版本检查、操作幂等、更正/删除/过期、跨会话读取、管理面板 | [fact_store](../../memory/fact_store.py)、[preferences](../../memory/preferences.py)、[memory_routes](../../api/memory_routes.py)、[PreferencePanel](../../frontend/src/components/PreferencePanel.vue) |
+| D：可验证长期偏好 | MySQL 事实版本、原话来源、候选确认、乐观版本检查、操作幂等、更正/删除/过期、跨会话读取、管理面板 | [fact_store](../../memory/fact_store.py)、[preferences](../../memory/preferences.py)、[memory_routes](../../api/memory_routes.py)、[PreferencePanel](../../frontend/src/components/PreferencePanel.vue) |
+| E：持久账本基础 | MySQL 对话/状态/回执同事务、数据库租约校验、答案快照恢复提交、Redis 存量懒导入与清空墓碑 | [mysql_turn_store](../../memory/mysql_turn_store.py)、[mysql_database](../../memory/mysql_database.py)、[ChatService](../../core/chat_service.py) |
 
 关键行为：复合问题只要需要录取数字，就先查 CSV；查询失败或条件不足时直接说明/澄清。更换省份、科类、考试年度或考生后，相关成绩字段失效，不从旧历史文本重新补回。回答必须引用本次真实证据，数字先检查是否出现在依据中，再由模型检查对应关系；这仍不是形式化的语义正确性证明。
 
 纯数字问题使用 CSV 固定模板生成，`verification_method=deterministic_csv` 表示程序确保数字与工具记录一致；混合问题继续执行证据核验。引用记录文档、修订和片段 ID、哈希与本次原文，前端可展开核对。
 
-当前仍待实施：人工独立检索集、中文 Embedding 对照、PG 整轮账本迁移、LangGraph Checkpoint、标准 MCP、Composer 与动态 Skills。BM25 尚未证明优于修复后的原词法评分。长期记忆首版只覆盖明确偏好，不覆盖全部情景/程序性记忆或跨设备账号；模型驱动的通用工具循环尚未接入角色 Agent。
+当前仍待实施：人工独立检索集、中文 Embedding 对照、LangGraph 节点 Checkpoint、标准 MCP、Composer 与动态 Skills。BM25 尚未证明优于修复后的原词法评分。长期记忆首版只覆盖明确偏好，不覆盖全部情景/程序性记忆或跨设备账号；模型驱动的通用工具循环尚未接入角色 Agent。
 
 ## 文件与运行数据
 
@@ -37,15 +38,15 @@ experiments/v2/
 
 Trace 只记录阶段、耗时、token 用量、工具名、参数字段名、证据 ID/版本和终止原因，不记录问题、回答、原始用户 ID 或凭据。后台记忆维护为有界的尽力执行队列，进程重启可能丢失待维护任务；已原子提交的对话不受影响。
 
-Redis 使用 `v2:` 命名空间；Chroma 知识库为 `hello_hebut_v2`，旧 `episodic_v2/user_profile_v2` 保留但当前 API 不再读取或写入。PG 使用独立 `postgres-data` 数据卷及 `hellohebut_memory_v2` schema。请求回执和匿名令牌有效期为 24 小时，超过回执有效期不保证请求去重；令牌失效后新匿名身份不能找回旧偏好，账号恢复与跨设备使用尚未实现。
+Redis 使用 `v2:` 命名空间，保留匿名身份、知识活动清单等职责；聊天持久化以 MySQL 为准。Chroma 知识库为 `hello_hebut_v2`，旧 `episodic_v2/user_profile_v2` 保留但当前 API 不再读写。MySQL 使用独立 `mysql-data` 数据卷、`hellohebut` 数据库和 `hellohebut_memory_v2_` 表前缀。匿名令牌有效期仍为 24 小时；新匿名身份不能找回旧偏好，账号恢复与跨设备使用尚未实现。
 
 ## 验证命令
 
 从项目根目录执行，依赖安装使用现有 `requirements.txt`。真实 Redis 测试需要 PATH 中存在 `redis-server`；测试自行启动随机端口的专用 Redis 并清理，不连接或清空已有实例。
 
 ```powershell
-python -X utf8 experiments/v2/scripts/run_tests.py --suite experiments/v2/legacy_tests --report experiments/v2/reports/stage4_legacy.json
-python -X utf8 experiments/v2/scripts/run_tests.py --report experiments/v2/reports/stage4_regression.json
+python -X utf8 experiments/v2/scripts/run_tests.py --suite experiments/v2/legacy_tests --report experiments/v2/reports/stage5_legacy.json
+python -X utf8 experiments/v2/scripts/run_tests.py --report experiments/v2/reports/stage5_regression.json
 python -X utf8 experiments/v2/scripts/compare_routing.py
 ```
 
@@ -60,24 +61,25 @@ python -X utf8 experiments/v2/scripts/live_smoke.py
 `commit` 记录执行时的 Git HEAD；提交前运行的报告以 `source_hashes` 和 `test_hashes` 标识实际受测文件。
 
 - [baseline.json](reports/baseline.json)：修改业务代码前原有 45 项离线测试通过，保留当时源码哈希。
-- [stage4_legacy.json](reports/stage4_legacy.json)、[stage4_regression.json](reports/stage4_regression.json)：当前批次离线回归；新增偏好来源/隔离、旧状态迁移及回答修复原因传递检查，历史报告保留。
+- [stage5_legacy.json](reports/stage5_legacy.json)、[stage5_regression.json](reports/stage5_regression.json)：本批原有 45/45、v2 回归 78/78 通过。历史 stage4 报告不覆盖。
 - [routing_comparison.json](reports/routing_comparison.json)：8 个固定案例，原 ChatService 必需工具路由 4/8，v2 为 8/8。使用脚本化意图/回答和真实 CSV，只衡量工具路由，不能解释为整体回答准确率提升。
 - [live_smoke.json](reports/live_smoke.json)：真实模型、合成政策资料的两例冒烟通过；验证跨年证据充分与缺失年份拒绝放行，不代表正式检索指标或全面注入防御评测。
 
-本批统一测试：原有 45/45、v2 回归 78/78；[最终容器验收](reports/stage4_deployment.json) 7/7，覆盖健康/代理/鉴权、向量检索与源码指纹、CSV 幂等、条件变更、住宿费/校区和学费缺资料拒答。[首轮](reports/stage4_initial_deployment.json) 与 [修复中间轮](reports/stage4_repair_deployment.json) 均为 6/7，保留校区回答硬核验失败记录，诊断与修复见阶段更新；最终单次通过不代表模型回答不再波动。
+**本批统一验证**：[MySQL 偏好与 HTTP](reports/stage5_memory.json) 11/11、[聊天账本](reports/stage5_turns.json) 12/12、[容器与真实模型冒烟](reports/stage5_deployment.json) 7/7；[数据库/应用真实重启](reports/stage5_restart.json) 后偏好保留，已生成答案不重复计算即可恢复提交，并能回放原回执。数据库专项测试采用独立表前缀和身份并清理，不修改用户偏好；[交付汇总](reports/stage5_validation.json) 核对源码与运行容器。首轮 SQL 插值和上下文快照变量冲突已修复，失败报告保留为 `stage5_initial_*.json`。
 
-[PG/Redis 集成报告](reports/stage4_memory.json) 覆盖 11 项真实存储与 HTTP 检查，包括 30 轮合成序列；[重启报告](reports/stage4_restart.json) 验证真实数据库/应用重启后偏好仍在。测试在临时 schema 和独立身份中执行并清理，不修改用户偏好。前端构建通过；浏览器及 Windows 自动化通道不可用，界面目测尚未验收。
+[第四批汇总](reports/stage4_validation.json) 保留当时的 45/45 原有回归、78/78 v2 回归、11/11 PG/Redis 检查及最终 7/7 容器冒烟。两次中间 6/7 失败也保留，单次模型冒烟通过不等于无波动的整体准确率。前端已在第四批构建；浏览器/Windows 自动化通道当时不可用，界面目测尚未验收。
 
 [真实存储报告](reports/stage3_storage_retrieval.json) 中，4 项 Chroma/Redis 发布、故障、快照和回退检查通过，并覆盖可选 BM25 索引缓存。检索对照及适用边界见下节；测试集合单独创建并清理，不修改项目知识资料。
 
-标准 `docker compose up -d --build` 仍受基础镜像元数据长度校验阻塞。本批复用本机依赖镜像，补装 `jsonschema==4.19.2`、`psycopg[binary]==3.2.13` 并覆盖源码/前端产物；临时构建覆盖位于 Git 忽略的 `tmp/`。PostgreSQL 从 Docker 官方镜像的 ECR Public 入口下载，实测 16.15，未修改全局镜像源。可在 `.env` 设置 `V2_POSTGRES_IMAGE=public.ecr.aws/docker/library/postgres:16-alpine` 后使用现有镜像 `docker compose up -d --no-build`；正式全新构建仍待验收。
+标准 `docker compose up -d --build` 的基础镜像元数据长度校验问题继续保留，不修改全局镜像源。本批已从 Docker 官方镜像的 ECR Public 入口下载 `public.ecr.aws/docker/library/mysql:8.4`；可设置 `V2_MYSQL_IMAGE` 使用该镜像。Python 数据库驱动改为 `asyncmy==0.2.17`；临时构建覆盖保存在 Git 忽略的 `tmp/`，正式全新构建仍待验收。
 
-运行中的服务可用以下脚本复测（第一条调用真实模型并产生费用；第二条创建并清理临时 schema 和独立身份，不修改用户偏好）：
+运行中的服务可用以下脚本复测（第一条调用真实模型并产生费用；第二条创建并清理隔离测试表和身份）：
 
 ```powershell
-python -X utf8 experiments/v2/scripts/deployment_smoke.py --build-mode reused_local_base --report experiments/v2/reports/stage4_deployment.json
+python -X utf8 experiments/v2/scripts/deployment_smoke.py --build-mode reused_local_base --report experiments/v2/reports/stage5_deployment.json
 python -X utf8 experiments/v2/scripts/fact_store_checks.py
-# 下一条会重启本机 v2 PostgreSQL 与应用，单独运行，不与其他验收并发
+python -X utf8 experiments/v2/scripts/turn_store_checks.py
+# 下一条会重启本机 v2 MySQL 与应用，单独运行，不与其他验收并发
 python -X utf8 experiments/v2/scripts/memory_restart_smoke.py
 ```
 
@@ -87,7 +89,7 @@ python -X utf8 experiments/v2/scripts/memory_restart_smoke.py
 
 候选提取采用保守的显式第一人称规则，不调用模型猜测；只接受已原子提交且哈希匹配的本人消息，保存消息/运行/会话 ID 与原话。候选 7 天失效；确认默认 180 天，手动保存可选 1—365 天。到期记录在下一次访问时标为 `expired` 并排除，历史查看仍可见；没有定期物理清理任务。
 
-PG 是偏好唯一权威来源，不复制到 Chroma 或 Redis 缓存。按用户行锁串行修改，`expected_revision` 拒绝陈旧页面覆盖，`operation_id` 回执保证重试不重复更新；删除清除该键的所有版本、候选和原话。只保留不含原文的版本/操作摘要，旧请求重放或正在执行的旧轮次不能重新写回偏好。事务与锁的实现依据 [Psycopg 事务说明](https://www.psycopg.org/psycopg3/docs/basic/transactions.html) 和 [PostgreSQL 行锁说明](https://www.postgresql.org/docs/16/explicit-locking.html)。
+MySQL 是偏好唯一权威来源，不复制到 Chroma 或 Redis 缓存。按用户行锁串行修改，`expected_revision` 拒绝陈旧页面覆盖，`operation_id` 回执保证重试不重复更新；删除清除该键的所有版本、候选和原话。只保留不含原文的版本/操作摘要，旧请求重放或正在执行的旧轮次不能重新写回偏好。数据库事务和行锁分别参考 [MySQL 事务说明](https://dev.mysql.com/doc/refman/8.4/en/commit.html) 与 [InnoDB 锁定读取](https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html)。
 
 API 全部用 `/session` 的 Bearer 身份，不能指定他人的 `user_id` 或伪造来源：
 
@@ -98,9 +100,21 @@ API 全部用 `/session` 的 Bearer 身份，不能指定他人的 `user_id` 或
 | `POST /memories/{memory_id}/confirm` 或 `/reject` | 确认或忽略候选；提交 expected_revision/operation_id |
 | `DELETE /memories/{key}` 或 `DELETE /memories` | 删除某类全部版本或全部偏好；同样提交版本与操作编号 |
 
-PG 初始化执行 [001_facts.sql](../../memory/migrations/001_facts.sql)，不迁移缺少来源的旧模型画像。当前 API 停用旧画像提炼和跨会话情景召回；`HELLOHEBUT_VERIFIED_MEMORY=false` 关闭新偏好功能，不自动恢复旧画像。PG 运行时故障会使偏好接口返回 503，聊天不回退到旧画像；普通咨询仍可运行。旧 TaskState v1 保守迁移为“不应用本人偏好”，新对话或明确“回到我自己”后恢复本人范围，避免给旧的代问任务套用偏好。
+MySQL 初始化执行 [001_facts.sql](../../memory/migrations/001_facts.sql)，不迁移缺少来源的旧模型画像。当前 API 停用旧画像提炼和跨会话情景召回；`HELLOHEBUT_VERIFIED_MEMORY=false` 只关闭偏好功能，不关闭 MySQL 聊天账本或恢复旧画像。数据库故障时不回退到旧画像，也不回退写 Redis。旧 TaskState v1 保守迁移为“不应用本人偏好”，新对话或明确“回到我自己”后恢复本人范围，避免给旧的代问任务套用偏好。
 
-**仍有边界**：Redis 负责整轮聊天与幂等回执，PG 负责偏好，二者尚非同一事务。聊天提交后最多等待两秒写候选，失败不撤销已提交聊天；同一请求重试可补写，尚无持久后台任务队列。删除偏好不删除聊天原文、摘要或历史回执，已在执行的回答可能已读取旧偏好；新会话只读取当前有效记录。本版适用于同一有效匿名身份，不是跨设备账号记忆；自动提取覆盖率和 Write Precision 尚无人工独立评测。
+**仍有边界**：偏好与聊天虽已同库，候选提取仍在聊天提交后单独执行，最多等待两秒；失败不撤销已提交聊天，同一请求重试可补写，尚无持久后台任务队列。删除偏好不删除聊天原文、摘要或历史回执，已在执行的回答可能已读取旧偏好；新会话只读取当前有效记录。本版适用于同一有效匿名身份，不是跨设备账号记忆；自动提取覆盖率和 Write Precision 尚无人工独立评测。
+
+## MySQL 聊天账本、恢复与存量切换
+
+用户消息、最终回答、TaskState 和请求回执在一个 MySQL 事务中提交；数据库会话租约、到期时间和状态版本在同一事务内校验，失去租约的旧执行不能提交。已提交回执持久保留，同身份、会话、请求 ID 及内容返回原结果；同 ID 改内容返回冲突。目前没有定时清理聊天与回执的任务，匿名令牌的 24 小时有效期与数据库保留时间不同。
+
+答案计算完成后先保存可恢复快照，再提交整轮。恢复先查已提交回执；未提交且快照未超过 1 小时、会话 revision 未变化时，直接恢复提交，不重复调用模型。快照过期、状态变更或在保存快照前中断时需重新计算。这只覆盖已生成答案的恢复，尚未接入 LangGraph，也不能从检索或模型调用中途继续。
+
+恢复的是旧请求已经生成的答案，不会重新检索最新知识或重新应用偏好更正；需要当前资料/偏好时发起新请求。已提交请求始终回放原结果。MySQL 聊天账本接入当前 FastAPI/Web 路径，历史 `--cli` 演示入口仍保留 v1 记忆行为，不用于 v2 持久化验收。
+
+首次切换前停止旧应用，避免 Redis 与 MySQL 同时接收聊天写入。旧 Redis 会话在首次读取时，将仍存在的历史、摘要与回执导入 MySQL；已过期的 Redis 数据无法恢复。导入后 MySQL 是唯一权威来源，运行故障不回退写 Redis。清空会话删除 MySQL 正文、请求和回执，保留不含正文的迁移墓碑，避免旧 Redis 数据复活；清空后同请求 ID 可重新执行。
+
+旧 PG 主库已检查：偏好记录、操作回执、候选捕获回执均为 0，只有 9 条 owner 记录，没有偏好内容待迁移。本机切换时停止旧 PG 容器并保留 `postgres-data` 卷；不执行数据库卷删除。本批 MySQL 测试使用同一数据库中的独立表前缀，完成后只清理对应测试表。
 
 ## 检索配置与对照
 
@@ -133,7 +147,7 @@ python -X utf8 experiments/v2/scripts/retrieval_ablation.py
 
 ## 知识发布与回退
 
-导入统一为“写不可变修订 → 读回校验 → Redis CAS 切换活动清单”。并发发布冲突返回 409；失败和退休片段留在 Chroma，但检索只接受活动清单。每个聊天请求固定一份快照，缓存键包含发布代际，因此其他进程发布后新请求也不会误用旧缓存。Redis 清单是当前权威数据，需连同现有 AOF 数据卷持久化；后续再统一迁入 PostgreSQL。
+导入统一为“写不可变修订 → 读回校验 → Redis CAS 切换活动清单”。并发发布冲突返回 409；失败和退休片段留在 Chroma，但检索只接受活动清单。每个聊天请求固定一份快照，缓存键包含发布代际，因此其他进程发布后新请求也不会误用旧缓存。Redis 知识清单仍是当前权威数据，需连同现有 AOF 数据卷持久化；它没有随本批聊天账本一起迁移，后续单独迁入 MySQL。
 
 `GET /knowledge/stats` 返回活动片段数、发布代际和可回退代际。`POST /knowledge/add`、`/knowledge/upload` 统一发布；`POST /knowledge/rollback` 接收 `{"generation": 目标代际}`，发布一个新代际指向历史内容。最近五次历史支持回退，旧修订暂不自动清理，以免破坏正在执行的快照；因此 Chroma 原始 count 可能大于活动 count。已有无修订标签的片段不会参与 v2 活动检索。
 
@@ -148,7 +162,7 @@ python -X utf8 experiments/v2/scripts/retrieval_ablation.py
 | 位置 | 触发向量化的操作 |
 | --- | --- |
 | `mcp/knowledge_base.py` | 文档 `upsert(documents=...)` 与语义检索 `query(query_texts=...)` |
-| `memory/conversation_memory.py` 的旧实现 | 历史摘要入库、相关历史检索、用户画像 `upsert(documents=...)`；当前 v2 API 已停用这些跨会话路径，PG 偏好不使用 ONNX |
+| `memory/conversation_memory.py` 的旧实现 | 历史摘要入库、相关历史检索、用户画像 `upsert(documents=...)`；当前 v2 API 已停用这些跨会话路径，MySQL 偏好与账本不使用 ONNX |
 | `Dockerfile` | 预下载模型并复制到应用用户缓存，避免运行时下载 |
 
 CSV 查询、Redis 状态/幂等和远端大模型生成本身不使用 ONNX。此前错误来自 Windows Anaconda 的 DLL 加载；容器使用独立 Linux 环境，ONNX Runtime 1.27.0 已完成真实推理，因此 Docker 部署不需要先修复该 Windows 环境。
@@ -163,7 +177,7 @@ docker compose up -d --build
 docker compose ps -a
 ```
 
-默认网页为 `http://localhost:8088`，后端为 `http://localhost:18000`，Chroma 为 `18001`、Redis 为 `16379`、Prometheus 为 `19090`、PostgreSQL 为 `127.0.0.1:15432`。共六个服务，容器内使用 `chromadb:8000`、`redis:6379`、`postgres:5432`；宿主机直跑 Python 的 PG 配置见 `.env.example`。
+默认网页为 `http://localhost:8088`，后端为 `http://localhost:18000`，Chroma 为 `18001`、Redis 为 `16379`、Prometheus 为 `19090`、MySQL 为 `127.0.0.1:15433`。Compose 共六个服务，容器内使用 `chromadb:8000`、`redis:6379`、`mysql:3306`。宿主机直跑 Python 使用 `.env.example` 中的 `MYSQL_HOST/PORT/DATABASE/USER/PASSWORD`；可选 `V2_FACT_DATABASE_URL=mysql://...` 优先于这些字段。Compose 的镜像、宿主机端口和初始密码由 `V2_MYSQL_IMAGE/PORT/PASSWORD` 配置。
 
 单独开发前端可在 `frontend/` 执行 `npm run dev`，Vite 默认代理到 `localhost:18000`；其他后端地址通过 `VITE_PYTHON_API_URL` 指定。
 
@@ -187,4 +201,4 @@ $answer
 
 可设置 `HELLOHEBUT_AGENTIC_RAG=false` 回退为原检索流程，身份、原子提交与 CSV 必需调用继续生效。`V2_CHAT_TIMEOUT_S` 默认 50 秒；补检索最多 3 轮/6 个查询，每请求最多 8 次工具调用和 16 次模型调用。模型核验不可用时保守返回原始证据/缺项，不标记核验通过。
 
-本批完成后暂停审查。下一阶段计划迁移 PG 整轮账本并接入持久 Checkpoint，先明确存量迁移和恢复边界；中文 Embedding 对照、人工真值与标准构建继续保留为未完成验收项。
+本批完成后暂停审查。下一阶段在 MySQL 账本基础上拆分工作流节点并接入 LangGraph Checkpointer，验证更细粒度的恢复；中文 Embedding 对照、人工真值与标准构建继续保留为未完成验收项。

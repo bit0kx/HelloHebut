@@ -47,18 +47,25 @@ class TurnStore:
         return hashlib.sha256(message.encode()).hexdigest()
 
     async def receipt(self, user_id, conv_id, request_id, message):
-        value = await self.client.get(self.receipt_key(user_id, conv_id, request_id))
-        if not value:
+        data = await self.receipt_record(user_id, conv_id, request_id)
+        if not data:
             return None
-        data = json.loads(value)
         if data['message_hash'] != self.message_hash(message):
             raise RequestConflict('同一 client_request_id 不能用于不同消息')
         return data['result']
+
+    async def receipt_record(self, user_id, conv_id, request_id):
+        value = await self.client.get(self.receipt_key(user_id, conv_id, request_id))
+        return json.loads(value) if value else None
 
     async def state(self, user_id, conv_id):
         value = await self.client.get(self.key('state', user_id, conv_id))
         if not value:
             return TaskState()
+        return self.decode_state(value)
+
+    @staticmethod
+    def decode_state(value):
         payload = json.loads(value)
         if payload.get('schema_version', 1) < 2:
             # Old tasks did not record whose preferences may apply. Do not guess on upgrade.

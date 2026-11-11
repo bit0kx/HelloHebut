@@ -124,8 +124,21 @@ class ChatService:
                             if update_profile:
                                 await self._capture_preferences(user_id, conv_id, request_id, message)
                             return ChatResult(**receipt)
-                        previous = await turns.state(user_id, conv_id)
-                        result, state = await self._handle_turn(message, user_id, conv_id, previous, run, request_id)
+                        checkpoint = None
+                        if getattr(turns, 'durable', False):
+                            checkpoint = await turns.begin_request(user_id, conv_id, request_id, message, lease)
+                        if checkpoint:
+                            result = ChatResult(**checkpoint['result'])
+                            state = TaskState.model_validate(checkpoint['state'])
+                            run.memory_revision = checkpoint['memory_revision']
+                            run.events.append({'stage': 'resume_computed_answer', 'source_run_id': result.trace_id})
+                        else:
+                            previous = await turns.state(user_id, conv_id)
+                            result, state = await self._handle_turn(message, user_id, conv_id, previous, run, request_id)
+                            if getattr(turns, 'durable', False):
+                                with run.span('save_computed_answer'):
+                                    await turns.save_checkpoint(user_id, conv_id, request_id, message,
+                                        asdict(result), state, lease, memory_revision=run.memory_revision)
                         with run.span('commit'):
                             await turns.commit(user_id, conv_id, request_id, message, asdict(result), state, lease,
                                                memory_revision=run.memory_revision)

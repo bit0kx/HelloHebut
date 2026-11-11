@@ -4,7 +4,7 @@
 
 阶段简报单独维护在 [v2 阶段更新](experiments/v2/STAGE_UPDATES.md)。每批工作完成后更新简报并暂停供用户审查，再根据反馈继续；本文不重复堆叠实施日志。
 
-当前已推进第 3 阶段：新增 PostgreSQL 偏好版本库、来源校验、人工确认、更正/删除/过期、跨会话读取与前端管理；本批按用户要求集中测试后交付。PG 当前只负责长期偏好，整轮聊天账本仍在 Redis；LangGraph 和 PG 统一整轮提交属于下一阶段。独立人工检索真值、中文 Embedding 对照及标准全新镜像构建仍待补齐，功能与开发测试通过不等于全部目标达标。
+按用户最新要求，关系数据库统一改用 MySQL。第 3 阶段的偏好来源、确认、更正/删除/过期与前端管理保留；本批推进第 4 阶段的 MySQL 整轮账本和已生成答案恢复提交，统一测试结果见阶段简报。当前 Checkpoint 仅位于答案计算完成之后，LangGraph 节点级恢复仍待实现。独立人工检索真值、中文 Embedding 对照及标准全新镜像构建仍待补齐。
 
 依据：[项目技术现状](TECHNICAL_DESIGN.md)、[主要流程](main_flow.md)、[Agent 调研交接材料](agent_research_codex_context_2026-11.txt)，以及本地 EchoMind Python 源码和 Java 版中经筛选的可迁移设计。调研材料已替代无法抓取正文的 ChatGPT 分享链接。方案基于 HelloHebut 提交 `d650853`，不重复现有部署说明和算法细节。
 
@@ -83,12 +83,12 @@ flowchart TD
 | --- | --- | --- |
 | 官方政策、专业资料、历史录取数据 | 版本化资料目录 + Chroma；CSV 保留结构化查询 | 政策与数字的事实依据，不被用户画像覆盖 |
 | 当前考生条件、待澄清项、任务步骤 | 结构化 TaskState；后续由 Checkpointer 持久化执行快照 | 当前任务条件与长期偏好分离 |
-| 已确认偏好、历史任务经验 | PostgreSQL 记录事实与版本；Chroma 可作派生检索索引 | 权限、有效期、撤销以关系记录为准 |
-| 已提交对话、请求回执、评测任务 | 第一版复用 Redis；持久化阶段统一迁入 PostgreSQL | 明确单一权威写入端，避免 Redis/PG 双写各自认定成功 |
-| 缓存、限流、短期锁与队列 | Redis | 缓存丢失不能改变已确认事实或已提交结果 |
+| 已确认偏好、历史任务经验 | MySQL 记录事实与版本；Chroma 可作派生检索索引 | 权限、有效期、撤销以关系记录为准 |
+| 已提交对话、请求回执、评测任务 | MySQL 整轮账本；评测任务持久化后续接入 | 对话、TaskState、回执同一事务提交；保持单一权威写入端 |
+| 身份、缓存、限流与队列 | Redis；知识活动清单暂保留 Redis | 对话提交以 MySQL 为准；数据库租约校验与提交处于同一事务 |
 | 调用轨迹与质量指标 | Langfuse + 现有 Prometheus | 记录结构化过程，默认脱敏，不保存模型隐藏思考过程 |
 
-先保留 Chroma，避免同时更换向量库；引入 PostgreSQL 是为了记忆版本、任务账本和 Checkpoint。暂不同时安装 pgvector、Qdrant、Mem0、Hindsight。LangGraph 的 Checkpointer 与跨线程 Store 职责不同，接入时必须区分执行快照和长期事实。[LangGraph 持久化文档](https://docs.langchain.com/oss/python/langgraph/persistence)
+保留 Chroma；MySQL 负责记忆版本、任务账本和执行快照，不再引入 PostgreSQL。暂不增加其他向量库、Mem0 或 Hindsight。后续接入 LangGraph 时，单独验证 MySQL Checkpointer 的序列化、并发与恢复契约，不能把当前答案快照视为完整节点恢复。Checkpointer 与跨线程 Store 职责不同，执行快照和长期事实需分别管理。[LangGraph 持久化文档](https://docs.langchain.com/oss/python/langgraph/persistence)
 
 ## 4. 核心模块怎么改
 
@@ -180,7 +180,7 @@ flowchart TD
 1. 请求增加 `client_request_id` 和请求内容哈希；同 ID 同内容回放结果，同 ID 不同内容返回冲突。运行中的重复请求返回任务状态。
 2. 借鉴 EchoMind，先在 Redis 原子写入用户消息、最终回答、状态与回执。会话串行化配合租约续期及提交版本检查；失去租约的旧任务不能继续提交。
 3. 摘要按消息快照计算，提交时比较版本并保留之后新增消息；摘要失败不裁剪原文。同步 Redis/Chroma 调用改为异步客户端或有界线程池，画像写入使用有限队列。
-4. 持久化阶段引入 PostgreSQL：整轮记录、业务状态和回执在一个事务中提交，Redis 转为缓存；Checkpointer 保存执行进度。为存量会话提供版本化迁移，避免两个存储同时作为权威来源。
+4. 持久化阶段使用 MySQL：整轮记录、业务状态和回执在一个事务中提交，数据库租约与提交版本在同一事务内校验。当前先持久化已生成答案，恢复时跳过重复生成；后续再由 LangGraph Checkpointer 保存节点进度。切换时停止旧应用，存量 Redis 会话首次读取时导入仍存的历史、摘要与回执；导入后 MySQL 是唯一权威来源，故障时不回退写 Redis。清空会话保留迁移墓碑，防止旧 Redis 内容再次导入；已过期的数据不作恢复承诺。
 5. Checkpoint 与业务提交不假设跨存储原子性。恢复前先检查请求回执；已提交则返回原结果，未提交才从安全节点继续。评测 Job 和后台队列采用持久任务记录与幂等消费，不能只依赖 `asyncio.create_task`。
 
 首期工具全部只读。以后若接入真实咨询工单，要有独立写入授权、任务账本和外部幂等键；Checkpoint 本身不保证外部系统 exactly-once。当前 `escalated` 仅是标记，接入真实工单前页面不能显示“已联系招生办”。
@@ -241,10 +241,10 @@ Judge 使用少量人工标注样例校准，保留有效判分覆盖率，评�
 | `mcp/knowledge_base.py`、`knowledge_indexing.py` | BM25 对照、元数据与资料版本治理；MCP 阶段统一迁移至 `tooling/` |
 | `mcp/admission_data.py` | 继续负责数字查询与规则计算；增加类型化输入适配，不把计算交给模型 |
 | `agents/agent_orchestrator.py`、新增 `agents/composer.py` | 主辅角色、受控工具循环、结构化合成与错误聚合 |
-| `memory/conversation_memory.py`、新增 `memory/fact_store.py` | 原子整轮提交、安全压缩、记忆版本与冲突；持久化阶段调整存储适配器 |
+| `memory/conversation_memory.py`、`fact_store.py`、`mysql_database.py`、`mysql_turn_store.py` | MySQL 整轮账本、答案快照、存量导入、安全压缩与偏好版本 |
 | 新增 `workflows/chat_graph.py`、`workflows/checkpoints.py` | 节点连线、恢复入口、状态版本与迁移 |
 | `evaluation/`、新增 `evaluation/datasets/` | 分层评测、manifest、消融报告、持久 Job；纳入版本控制的关键测试 |
-| `monitor/`、`frontend/src/`、`docker-compose.yml` | Trace、正确的指标与进度界面；按阶段增加 PG/Worker 和可选观测服务 |
+| `monitor/`、`frontend/src/`、`docker-compose.yml` | Trace、正确的指标与进度界面；按阶段增加 MySQL/Worker 和可选观测服务 |
 
 实施前先核对依赖兼容性并锁定版本。现有 `tests/` 被 `.gitignore` 整体忽略，选择仍适用的关键测试纳入 Git 和 CI；历史上删除的测试不无差别恢复。
 
@@ -252,14 +252,14 @@ Judge 使用少量人工标注样例校准，保留有效判分覆盖率，评�
 
 ## 6. 六周实施顺序与验收门槛
 
-按一名熟悉现有代码的开发者持续投入估算；资料收集、模型额度与部署条件可能延长工期。以下按依赖顺序安排，不能把评测留到最后才开始。
+按一名熟悉现有代码的开发者持续投入估算；资料收集、模型额度与部署条件可能延长工期。以下按依赖顺序安排，每批实现后统一测试并记录结果，不能把所有验证推迟到六周全部结束。
 
 | 阶段 | 交付物 | 通过条件 |
 | --- | --- | --- |
 | 第 1 周：基线与核心契约 | 冻结现状报告；Trace；类型化状态/工具；CSV 必需调用；首批检索真值 | 能复现现有结果；复合问题不漏查数字；坏参数被拒绝 |
 | 第 2 周：Agentic RAG | Planner、证据核验、有限补查、资料版本和引用映射 | 跨年缺资料不编造；引用可回到原文；预算到达会停止 |
-| 第 3 周：记忆与可靠性 | 字段纠正、分层记忆、PG 事实记录；原子提交、安全压缩、有界队列 | 更换考生/省份不串用旧条件；删除生效；压缩失败不丢原文 |
-| 第 4 周：持久工作流 | LangGraph、持久 Checkpoint；PG 统一整轮账本；恢复与幂等测试 | 重复请求不重复提交；提交前后故障均能确定结果；重启恢复通过 |
+| 第 3 周：记忆与可靠性 | 字段纠正、分层记忆、MySQL 事实记录；原子提交、安全压缩、有界队列 | 更换考生/省份不串用旧条件；删除生效；压缩失败不丢原文 |
+| 第 4 周：持久工作流 | MySQL 统一整轮账本与答案快照；再接 LangGraph 节点 Checkpoint；恢复与幂等测试 | 重复请求不重复提交；提交前后故障均能确定结果；明确恢复粒度并验证重启恢复 |
 | 第 5 周：工具与交互完善 | 主辅角色/Composer；按需 Skills；前端进度；持久评测任务 | 单/多角色可切换对照；失败轨迹可定位；断线可查询最终结果 |
 | 第 6 周：实验与展示 | 独立测试报告、消融、部署说明、演示；有需求才补只读 MCP | 指标可复现；能展示收益与成本；实现、计划和限制表述一致 |
 

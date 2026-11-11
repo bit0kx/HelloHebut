@@ -116,16 +116,21 @@ async def lifespan(app: FastAPI):
         skill_manager=_skill_manager,
     )
 
-    # PG only owns verified preferences in stage 3; Redis remains the chat-turn authority.
+    # MySQL owns both preferences and atomic chat turns; Redis still provides sessions.
     from memory.fact_store import FactStore
+    from memory.mysql_database import MySQLDatabase
+    from memory.mysql_turn_store import MySQLTurnStore
     verified_memory = os.getenv('HELLOHEBUT_VERIFIED_MEMORY', 'false').lower() == 'true'
     facts = FactStore(os.getenv('V2_FACT_DATABASE_URL', '')) if verified_memory else None
     if facts:
         await facts.initialize()
+    turns = MySQLTurnStore(os.getenv('REDIS_URL', 'redis://redis:6379/0'),
+                          database=facts or MySQLDatabase(os.getenv('V2_FACT_DATABASE_URL', '')))
+    await turns.initialize()
     # 记忆管理器（Redis 工作记忆 + 可切换的跨会话记忆适配器）
     _memory = MemoryManager(
-        # Disabling PG disables cross-session preferences; never silently resurrect legacy profiles.
-        fact_store=facts, verified_memory_mode=True,
+        # Disabling preferences does not change the chat ledger's authority.
+        fact_store=facts, verified_memory_mode=True, turn_store=turns,
         redis_url=os.getenv("REDIS_URL", "redis://redis:6379/0"),
         chroma_host=os.getenv("CHROMA_HOST", "chromadb"),
         chroma_port=int(os.getenv("CHROMA_PORT", "8000")),

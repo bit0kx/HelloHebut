@@ -2,7 +2,7 @@
 
 基于 Python、FastAPI 和 Anthropic Messages API 的多 Agent 咨询项目，结合官方资料 RAG、CSV 录取数据、Skills 与分层记忆，为本科报考问题提供带来源的回答。
 
-当前 `v2` 已接入结构化状态、请求幂等与原子提交、证据驱动的有限检索和回答核验，以及 PostgreSQL 偏好版本库与确认/更正/删除面板。运行方式、阶段进度及验收边界以 [v2 实施与验证指南](experiments/v2/README.md) 为准；历史流程与技术文档保留为 v1 基线。
+当前 `v2` 已接入结构化状态、证据驱动的有限检索和回答核验、可确认/更正/删除的偏好面板。本批按用户要求改用 MySQL，统一持久化偏好与整轮聊天账本，并增加已生成答案的恢复提交；测试状态与边界以 [v2 实施与验证指南](experiments/v2/README.md) 为准。历史流程与技术文档保留为 v1 基线。
 
 ## 主要功能
 
@@ -11,7 +11,7 @@
 | 学校、校园生活、招生政策与费用 | 检索已收录的官方资料并展示来源 |
 | 分数、位次与录取风险 | 查询河北、天津历史录取数据，计算并解释风险等级 |
 | 专业比较、就业与升学 | 根据专业资料和用户条件给出建议 |
-| 复合问题与多轮追问 | 四类 Agent 协作，利用会话历史和用户画像补充背景 |
+| 复合问题与多轮追问 | 四类 Agent 协作，利用结构化条件、会话历史和已确认偏好补充背景 |
 | 资料维护与质量检查 | 文档导入、Skills 热加载、评测报告及运行监控 |
 
 Agent 由应用规则编排，工具在回答前由业务服务调用。风险等级是历史数据参考，不代表录取概率。
@@ -35,7 +35,7 @@ Agent 由应用规则编排，工具在回答前由业务服务调用。风险�
 
 - **服务与编排**：FastAPI、Pydantic、自定义 Agent、`asyncio`。
 - **检索与数据**：ChromaDB、上下文切片、加权 RRF、查询改写、LLM 重排、确定性 CSV 查询。
-- **记忆与运行**：Redis、Chroma 情景记忆/画像、LLM Judge、Prometheus。
+- **记忆与运行**：MySQL 偏好与聊天账本、Redis 身份与知识清单、LLM Judge、Prometheus。
 - **界面与部署**：Vue 3、Vite 7、Docker Compose、Nginx。
 
 依赖版本以 [requirements.txt](requirements.txt)、[frontend/package.json](frontend/package.json) 和 [Dockerfile](Dockerfile) 为准；代码阅读入口集中在[技术与功能对应表](TECHNICAL_DESIGN.md#1-技术与功能对应关系)。

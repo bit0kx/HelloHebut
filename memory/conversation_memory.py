@@ -86,7 +86,7 @@ class MemoryManager:
     """
     三级记忆管理器。
 
-    工作记忆存 Redis（TTL 24h），情景记忆和用户画像存 ChromaDB（持久化）。
+    API 注入 MySQL 整轮账本与偏好库；旧调用方仍可使用 Redis/Chroma 适配器。
     """
 
     WORKING_MAX   = 20    # 工作记忆最大条数，超过则触发压缩
@@ -104,6 +104,7 @@ class MemoryManager:
         model:        str = "claude-3-5-sonnet-20241022",
         fact_store=None,
         verified_memory_mode: bool = False,
+        turn_store=None,
     ):
         import chromadb
         kwargs: Dict[str, Any] = {"api_key": api_key}
@@ -115,7 +116,7 @@ class MemoryManager:
         self.verified_memory_mode = verified_memory_mode
 
         self._redis = redis.from_url(redis_url, decode_responses=True, socket_timeout=5, socket_connect_timeout=5)
-        self.turns = TurnStore(redis_url)
+        self.turns = turn_store or TurnStore(redis_url)
         self.maintenance = MaintenanceQueue(self.maintain)
 
         # ChromaDB：优先连接独立服务（docker compose 模式），连不上则降级为本地嵌入式
@@ -152,8 +153,7 @@ class MemoryManager:
         if not getattr(self, 'facts', None) or not extract_candidates(message):
             return
         # A source must belong to this identity and already have an atomic chat receipt.
-        raw = await self.turns.client.get(self.turns.receipt_key(user_id, conv_id, request_id))
-        receipt = json.loads(raw) if raw else {}
+        receipt = await self.turns.receipt_record(user_id, conv_id, request_id) or {}
         if receipt.get('message_hash') != self.turns.message_hash(message):
             return
         await self.facts.capture(user_id, conv_id, request_id, receipt['result']['trace_id'], message,
@@ -173,6 +173,8 @@ class MemoryManager:
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """将一条消息写入工作记忆，超阈值时自动压缩。"""
+        if getattr(getattr(self, 'turns', None), 'durable', False):
+            raise RuntimeError('durable_chat_requires_atomic_turn_commit')
         user_id = self._safe_text(user_id)
         conv_id = self._safe_text(conv_id)
         clean_metadata = {
@@ -263,7 +265,12 @@ class MemoryManager:
         conv_id = self._safe_text(conv_id)
         query = self._safe_text(query)
 
-        recent = await self._get_working_memory(user_id, conv_id)
+        snapshot = None
+        if getattr(getattr(self, 'turns', None), 'durable', False):
+            snapshot = await self.turns.working_snapshot(user_id, conv_id)
+            recent = self._decode_messages(snapshot['messages'][-self.WORKING_MAX:])
+        else:
+            recent = await self._get_working_memory(user_id, conv_id)
 
         # 2. 情景记忆（跨会话语义检索）
         verified_mode = getattr(self, 'verified_memory_mode', False)
@@ -275,12 +282,12 @@ class MemoryManager:
             if getattr(self, 'facts', None) and (run is None or run.allow_long_term):
                 try:
                     async with asyncio.timeout(3):
-                        snapshot = await self.facts.snapshot(user_id)
+                        fact_snapshot = await self.facts.snapshot(user_id)
                     if run:
-                        run.memory_revision = snapshot['revision']
+                        run.memory_revision = fact_snapshot['revision']
                     if not other_candidate(query):
                         preferences = [{k: row[k] for k in ('memory_id', 'fact_key', 'value', 'version', 'source_message_id', 'valid_until')}
-                                       for row in snapshot['items'] if row['status'] == 'active']
+                                       for row in fact_snapshot['items'] if row['status'] == 'active']
                 except Exception as exc:
                     logger.warning('偏好读取不可用: %s', type(exc).__name__)
                     if run:
@@ -290,7 +297,8 @@ class MemoryManager:
             profile = await self._get_profile(user_id)
 
         # 4. 会话摘要（如果已压缩过）
-        summary = await asyncio.to_thread(self._redis.get, self._summary_key(user_id, conv_id)) or ""
+        summary = snapshot['summary'] if snapshot is not None else (
+            await asyncio.to_thread(self._redis.get, self._summary_key(user_id, conv_id)) or "")
 
         return MemoryContext(
             recent_messages=recent,
@@ -319,13 +327,15 @@ class MemoryManager:
         """
         key, skey = self._wm_key(user_id, conv_id), self._summary_key(user_id, conv_id)
         # Keep exact raw snapshot for compare-and-swap. No trimming after a failed summary.
-        raws = await asyncio.to_thread(self._redis.lrange, key, 0, -1)
-        old_summary = await asyncio.to_thread(self._redis.get, skey) or ""
-        messages = []
-        for raw in reversed(raws):
-            value = json.loads(raw)
-            messages.append(Message(MsgRole(value['role']), value['content'],
-                                    datetime.fromisoformat(value['ts']), value.get('metadata', {})))
+        snapshot = None
+        if getattr(getattr(self, 'turns', None), 'durable', False):
+            snapshot = await self.turns.working_snapshot(user_id, conv_id)
+            old_summary = snapshot['summary']
+            messages = self._decode_messages(snapshot['messages'])
+        else:
+            raws = await asyncio.to_thread(self._redis.lrange, key, 0, -1)
+            old_summary = await asyncio.to_thread(self._redis.get, skey) or ""
+            messages = self._decode_messages([json.loads(raw) for raw in reversed(raws)])
         if len(messages) < self.COMPRESS_AT:
             return
 
@@ -350,6 +360,10 @@ class MemoryManager:
         except Exception:
             return
         if not summary:
+            return
+
+        if snapshot is not None:
+            await self.turns.compress(user_id, conv_id, snapshot, cut, summary)
             return
 
         def commit_snapshot():
@@ -378,6 +392,9 @@ class MemoryManager:
     # ── 内部辅助 ──────────────────────────────────────────────────────────────
 
     async def _get_working_memory(self, user_id: str, conv_id: str) -> List[Message]:
+        if getattr(getattr(self, 'turns', None), 'durable', False):
+            snapshot = await self.turns.working_snapshot(user_id, conv_id)
+            return self._decode_messages(snapshot['messages'][-self.WORKING_MAX:])
         key  = self._wm_key(user_id, conv_id)
         raws = await asyncio.to_thread(self._redis.lrange, key, 0, self.WORKING_MAX - 1)
         msgs = []
@@ -390,6 +407,11 @@ class MemoryManager:
                 metadata=d.get("metadata", {}),
             ))
         return msgs
+
+    @staticmethod
+    def _decode_messages(values):
+        return [Message(MsgRole(d['role']), d['content'], datetime.fromisoformat(d['ts']), d.get('metadata', {}))
+                for d in values]
 
     async def _search_episodic(self, user_id: str, query: str) -> List[str]:
         """语义检索情景记忆。ChromaDB 内置 embedding，不依赖外部 API。"""

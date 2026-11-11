@@ -77,7 +77,7 @@ class VerifiedMemoryContextTests(unittest.IsolatedAsyncioTestCase):
         finally:
             CURRENT_RUN.reset(token)
 
-    async def test_pg_failure_never_falls_back_to_unverified_profiles(self):
+    async def test_database_failure_never_falls_back_to_unverified_profiles(self):
         self.memory.facts.snapshot.side_effect = RuntimeError('injected')
         ctx = await self.memory.get_context('owner', 'new', 'hello')
         self.assertEqual(ctx.verified_preferences, [])
@@ -99,18 +99,18 @@ class VerifiedMemoryContextTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_candidate_requires_matching_committed_source(self):
         message = '我喜欢计算机'
-        client = SimpleNamespace(get=AsyncMock(return_value=None))
-        self.memory.turns = SimpleNamespace(client=client, receipt_key=lambda *args: 'receipt', message_hash=TurnStore.message_hash)
+        lookup = AsyncMock(return_value=None)
+        self.memory.turns = SimpleNamespace(receipt_record=lookup, message_hash=TurnStore.message_hash)
         await self.memory.capture_preferences('u', 'c', 'r', message)
-        client.get.return_value = json.dumps({'message_hash': 'wrong'})
+        lookup.return_value = {'message_hash': 'wrong'}
         await self.memory.capture_preferences('u', 'c', 'r', message)
         self.memory.facts.capture.assert_not_awaited()
-        client.get.return_value = json.dumps({'message_hash': TurnStore.message_hash(message), 'memory_revision': 3,
-                                              'result': {'trace_id': 'run'}})
+        lookup.return_value = {'message_hash': TurnStore.message_hash(message), 'memory_revision': 3,
+                              'result': {'trace_id': 'run'}}
         await self.memory.capture_preferences('u', 'c', 'r', message)
         self.memory.facts.capture.assert_awaited_once_with('u', 'c', 'r', 'run', message, 3)
 
-    async def test_pg_mode_never_runs_old_profile_extraction(self):
+    async def test_verified_mode_never_runs_old_profile_extraction(self):
         self.memory._get_working_memory.side_effect = AssertionError('must not extract')
         await self.memory.update_profile('u', 'c')
         self.memory._get_working_memory.assert_not_awaited()

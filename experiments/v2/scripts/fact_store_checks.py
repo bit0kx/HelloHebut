@@ -1,4 +1,4 @@
-"""Real PostgreSQL/Redis checks in a disposable schema; no live preference rows touched."""
+"""Real MySQL/Redis checks in disposable tables; no live preference rows touched."""
 import asyncio
 import hashlib
 import json
@@ -10,7 +10,6 @@ import uuid
 
 
 async def inside():
-    from psycopg import sql
     from memory.fact_store import FactStore, MemoryConflict, MemoryNotFound
     schema = 'test_memory_' + uuid.uuid4().hex
     store = FactStore(os.getenv('V2_FACT_DATABASE_URL', ''), schema)
@@ -80,7 +79,7 @@ async def inside():
     async def expiry():
         await save('expiry', '机器人')
         async with store.connection() as conn:
-            await conn.execute("UPDATE memory_records SET valid_until=now()-interval '1 second' WHERE owner_id=%s", (store.owner('expiry'),))
+            await conn.execute(f"UPDATE {store.table('memory_records')} SET valid_until=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE owner_id=%s", (store.owner('expiry'),))
         assert not (await store.snapshot('expiry'))['items']
         assert (await store.snapshot('expiry', history=True))['items'][0]['status'] == 'expired'
         await save('expiry', '绘画', 'new')
@@ -142,11 +141,12 @@ async def inside():
         from agents.agent_orchestrator import AgentType
         from core.chat_service import ChatService
         from memory.conversation_memory import MemoryManager
-        from memory.turn_store import TurnStore
+        from memory.mysql_turn_store import MySQLTurnStore
         memory = MemoryManager.__new__(MemoryManager)
         memory.facts, memory.verified_memory_mode = store, True
         memory.maintenance = None
-        memory.turns = TurnStore(os.environ['REDIS_URL'])
+        memory.turns = MySQLTurnStore(os.environ['REDIS_URL'], database=store)
+        await memory.turns.initialize()
         memory._redis = redis.from_url(os.environ['REDIS_URL'], decode_responses=True)
         requests, sessions, conversations = [], [], []
         async def answer(request):
@@ -205,6 +205,7 @@ async def inside():
                 await memory.turns.clear(owner, conv)
             for session in sessions:
                 await memory.turns.client.delete('v2:session:' + hashlib.sha256(session['session_token'].encode()).hexdigest())
+            await memory.turns.drop_test_tables()
             await memory.turns.close()
             memory._redis.close()
 
@@ -216,15 +217,14 @@ async def inside():
             ('owner_isolation', scope), ('thirty_turn_sequence', sequence), ('http_chat_confirmation_and_delete', http_flow)]:
             await check(name, operation)
         async with store.connection() as conn:
-            version = (await (await conn.execute('SHOW server_version')).fetchone())['server_version']
-        return {'mode': 'real_postgres_redis_isolated_schema', 'postgres': version,
+            version = (await (await conn.execute('SELECT VERSION() AS version')).fetchone())['version']
+        return {'mode': 'real_mysql_redis_isolated_tables', 'mysql': version,
                 'checks': checks, 'passed': sum(r['passed'] for r in checks), 'total': len(checks),
                 'limitations': 'Functional assertions and synthetic 30-turn sequence, not human-labelled memory precision. '
                                'Reconnect tested; full process restart is checked separately.'}
     finally:
         assert schema.startswith('test_memory_') and len(schema) == 44
-        async with store.connection() as conn:
-            await conn.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))
+        await store.drop_test_tables()
 
 
 if __name__ == '__main__':
@@ -239,6 +239,6 @@ if __name__ == '__main__':
         report['source_sha256'] = {str(p.relative_to(root).as_posix()): hashlib.sha256(p.read_bytes()).hexdigest()
                                   for folder in ('memory', 'core', 'api') for p in sorted((root/folder).rglob('*.py'))}
         report['migration_sha256'] = hashlib.sha256((root/'memory/migrations/001_facts.sql').read_bytes()).hexdigest()
-        (root/'experiments/v2/reports/stage4_memory.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
-        print(json.dumps({k: report[k] for k in ('passed', 'total', 'postgres')}))
+        (root/'experiments/v2/reports/stage5_memory.json').write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
+        print(json.dumps({k: report[k] for k in ('passed', 'total', 'mysql')}))
         raise SystemExit(0 if report['passed'] == report['total'] else 1)
